@@ -40,6 +40,7 @@ export default function AuthPage() {
     if (session) {
       Alert.alert("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
       // Redireciona para a tela de login após o cadastro
+      router.replace('/(protected)/Dashboard/page');
       setIsLoginView(true);
     } else if (error) {
         Alert.alert(error.message);
