@@ -1,10 +1,9 @@
-// DashboardScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/supabaseClient';
+import { useTheme } from '@/Hooks/ThemeContext';
 
-// Tipagem para os dados de transações
 interface Transaction {
   id: string;
   description: string;
@@ -17,13 +16,13 @@ export default function DashboardScreen() {
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
 
       try {
-        // Passo 1: Obter a sessão do usuário logado
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session) {
           throw new Error(sessionError?.message || "Usuário não autenticado.");
@@ -31,7 +30,6 @@ export default function DashboardScreen() {
 
         const userId = session.user.id;
 
-        // Passo 2: Obter o perfil do usuário para verificar a função (admin ou comum)
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role')
@@ -42,12 +40,9 @@ export default function DashboardScreen() {
           throw new Error(profileError?.message || "Perfil do usuário não encontrado.");
         }
 
-        // Passo 3: Buscar dados com base na função do usuário
         let expensesData: Transaction[] = [];
 
         if (profile.role === 'admin') {
-          // Se for admin, busca os gastos de todos os filhos ligados a ele
-          [cite_start]// Conforme a regra de que "cada usuário só pode gerenciar seus próprios registros" [cite: 14]
           const { data: children, error: childrenError } = await supabase
             .from('children')
             .select('id')
@@ -71,7 +66,6 @@ export default function DashboardScreen() {
           expensesData = familyExpenses;
 
         } else {
-          // Se for comum (filho), busca apenas os próprios gastos
           const { data: myExpenses, error: expensesError } = await supabase
             .from('expenses')
             .select('*')
@@ -84,10 +78,9 @@ export default function DashboardScreen() {
           expensesData = myExpenses;
         }
 
-        // Calcular o saldo total e exibir as transações recentes
         const totalBalance = expensesData.reduce((sum, item) => sum + item.amount, 0);
         setBalance(totalBalance);
-        setTransactions(expensesData.slice(0, 5)); // Exibe apenas as 5 mais recentes
+        setTransactions(expensesData.slice(0, 5));
 
       } catch (error: any) {
         Alert.alert("Erro", error.message);
@@ -100,84 +93,79 @@ export default function DashboardScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
       
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Carregando dados...</Text>
+          <ActivityIndicator size="large" color={theme.colors.text} />
+          <Text style={[styles.loadingText, { color: theme.colors.text }]}>Carregando dados...</Text>
         </View>
       ) : (
         <>
-          {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+            <TouchableOpacity onPress={toggleTheme}>
+              <Ionicons name={theme.dark ? "sunny" : "moon"} size={24} color={theme.colors.text} />
             </TouchableOpacity>
             <TouchableOpacity>
-              <Ionicons name="notifications-outline" size={24} color="#fff" />
+              <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
-          [cite_start]{/* Seção de Saldo - Conforme o tema "organização financeira familiar" [cite: 24] */}
           <View style={styles.balanceSection}>
-            <Text style={styles.balanceTitle}>Família Financeira</Text>
-            <Text style={styles.balanceAmount}>$ {balance.toFixed(2)}</Text>
-            <Text style={styles.balanceSubtitle}>Saldo Total</Text>
+            <Text style={[styles.balanceTitle, { color: theme.colors.secondary }]}>Família Financeira</Text>
+            <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>$ {balance.toFixed(2)}</Text>
+            <Text style={[styles.balanceSubtitle, { color: theme.colors.secondary }]}>Saldo Total</Text>
           </View>
 
-          [cite_start]{/* Ações Rápidas - Implementação das funcionalidades obrigatórias [cite: 5] */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsScrollView}>
-            <View style={styles.actionCard}>
-              <Ionicons name="add-circle-outline" size={32} color="#fff" />
-              <Text style={styles.actionText}>Adicionar Gasto</Text>
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
+              <Ionicons name="add-circle-outline" size={32} color={theme.colors.text} />
+              <Text style={[styles.actionText, { color: theme.colors.text }]}>Adicionar Gasto</Text>
             </View>
-            <View style={styles.actionCard}>
-              <Ionicons name="wallet-outline" size={32} color="#fff" />
-              <Text style={styles.actionText}>Metas</Text>
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
+              <Ionicons name="wallet-outline" size={32} color={theme.colors.text} />
+              <Text style={[styles.actionText, { color: theme.colors.text }]}>Metas</Text>
             </View>
-            <View style={styles.actionCard}>
-              <Ionicons name="checkmark-circle-outline" size={32} color="#fff" />
-              <Text style={styles.actionText}>Definir para</Text>
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
+              <Ionicons name="checkmark-circle-outline" size={32} color={theme.colors.text} />
+              <Text style={[styles.actionText, { color: theme.colors.text }]}>Definir para</Text>
             </View>
-            <View style={styles.actionCard}>
-              <Ionicons name="bar-chart-outline" size={32} color="#fff" />
-              <Text style={styles.actionText}>Orçamento</Text>
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
+              <Ionicons name="bar-chart-outline" size={32} color={theme.colors.text} />
+              <Text style={[styles.actionText, { color: theme.colors.text }]}>Orçamento</Text>
             </View>
           </ScrollView>
 
-          [cite_start]{/* Transações Recentes - "Listagem e visualização detalhada" do CRUD principal [cite: 9, 8] */}
           <View style={styles.transactionsSection}>
-            <Text style={styles.transactionsTitle}>Transações Recentes</Text>
+            <Text style={[styles.transactionsTitle, { color: theme.colors.text }]}>Transações Recentes</Text>
             <View style={styles.transactionList}>
               {transactions.map((transaction) => (
-                <View key={transaction.id} style={styles.transactionItem}>
-                  <View style={styles.transactionIconContainer}>
-                    <Ionicons name="bag-handle-outline" size={24} color="#fff" />
+                <View key={transaction.id} style={[styles.transactionItem, { borderBottomColor: theme.colors.border }]}>
+                  <View style={[styles.transactionIconContainer, { backgroundColor: theme.colors.card }]}>
+                    <Ionicons name="bag-handle-outline" size={24} color={theme.colors.text} />
                   </View>
                   <View style={styles.transactionDetails}>
-                    <Text style={styles.transactionDescription}>{transaction.description}</Text>
-                    <Text style={styles.transactionAmount}>$ {transaction.amount.toFixed(2)}</Text>
+                    <Text style={[styles.transactionDescription, { color: theme.colors.text }]}>{transaction.description}</Text>
+                    <Text style={[styles.transactionAmount, { color: theme.colors.text }]}>$ {transaction.amount.toFixed(2)}</Text>
                   </View>
                 </View>
               ))}
             </View>
           </View>
           
-          {/* Barra de Navegação Inferior (mock) */}
-          <View style={styles.bottomNav}>
+          <View style={[styles.bottomNav, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
             <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="home" size={24} color="#fff" />
+                <Ionicons name="home" size={24} color={theme.colors.text} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="settings-outline" size={24} color="#fff" />
+                <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="person-outline" size={24} color="#fff" />
+                <Ionicons name="person-outline" size={24} color={theme.colors.text} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="wallet-outline" size={24} color="#fff" />
+                <Ionicons name="wallet-outline" size={24} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
         </>
@@ -189,7 +177,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
     padding: 20,
     paddingTop: 50,
   },
@@ -199,7 +186,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#fff',
     marginTop: 10,
     fontSize: 16,
   },
@@ -213,17 +199,14 @@ const styles = StyleSheet.create({
   },
   balanceTitle: {
     fontSize: 16,
-    color: '#aaa',
   },
   balanceAmount: {
     fontSize: 42,
     fontWeight: 'bold',
-    color: '#fff',
     marginVertical: 5,
   },
   balanceSubtitle: {
     fontSize: 14,
-    color: '#aaa',
   },
   actionsScrollView: {
     marginBottom: 20,
@@ -231,14 +214,12 @@ const styles = StyleSheet.create({
   actionCard: {
     width: 100,
     height: 100,
-    backgroundColor: '#1e1e1e',
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
   actionText: {
-    color: '#fff',
     marginTop: 5,
     fontSize: 12,
   },
@@ -248,7 +229,6 @@ const styles = StyleSheet.create({
   transactionsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 10,
   },
   transactionList: {
@@ -259,10 +239,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
   },
   transactionIconContainer: {
-    backgroundColor: '#1e1e1e',
     padding: 10,
     borderRadius: 25,
     marginRight: 15,
@@ -274,11 +252,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   transactionDescription: {
-    color: '#fff',
     fontSize: 16,
   },
   transactionAmount: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -287,8 +263,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 15,
     borderTopWidth: 1,
-    borderTopColor: '#2a2a2a',
-    backgroundColor: '#121212',
   },
   navItem: {
     alignItems: 'center',
