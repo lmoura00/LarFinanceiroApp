@@ -128,19 +128,19 @@ export default function DashboardScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScrollViewContent}>
             <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
-              <Ionicons name="add-circle-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
+              <Ionicons name="add-circle-outline" size={theme.fontSizes.xLarge} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Adicionar Gasto</Text>
             </View>
             <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
-              <Ionicons name="wallet-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
+              <Ionicons name="wallet-outline" size={theme.fontSizes.xLarge} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Metas</Text>
             </View>
             <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
-              <Ionicons name="checkmark-circle-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
+              <Ionicons name="checkmark-circle-outline" size={theme.fontSizes.xLarge} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Definir para</Text>
             </View>
             <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
-              <Ionicons name="bar-chart-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
+              <Ionicons name="bar-chart-outline" size={theme.fontSizes.xLarge} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Orçamento</Text>
             </View>
           </ScrollView>
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: width * 0.05,
-    paddingTop: height * 0,
+    paddingTop: height * 0.01,
   },
   loadingContainer: {
     flex: 1,
