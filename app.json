@@ -1,21 +1,17 @@
 {
   "expo": {
-    "name": "LarFinanceiroApp",
+    "name": "Lar Financeiro",
     "slug": "LarFinanceiroApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/splash-icon-dark.png",
     "scheme": "larfinanceiroapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon-light.png",
+      "image": "./assets/images/splash-icon-dark.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
-      "dark": {
-        "image": "./assets/images/splash-icon-dark.png",
-        "backgroundColor": "#000000"
-      }
+      "backgroundColor": "#222222"
     },
     "ios": {
       "supportsTablet": true,
@@ -23,10 +19,11 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/splash-icon-dark.png",
+        "backgroundColor": "#222222"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.lsm00.LarFinanceiroApp"
     },
     "web": {
       "bundler": "metro",

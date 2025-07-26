@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/Hooks/ThemeContext';
 import { supabase } from '@/supabaseClient';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
           throw new Error(sessionError?.message || "Usuário não autenticado.");
         }
 
+    
         const userId = session.user.id;
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -56,10 +57,9 @@ export default function ProfileScreen() {
     const { error } = await supabase.auth.signOut();
     if (error) {
       Alert.alert('Erro ao sair', error.message);
-    } else {
-      router.replace('/Auth/page');
     }
   };
+  
 
   if (loading) {
     return (
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: width * 0.05,
-    paddingTop: height * 0.01,
+    paddingTop: height * 0.06,
   },
   loadingContainer: {
     flex: 1,

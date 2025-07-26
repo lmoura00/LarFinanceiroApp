@@ -63,14 +63,12 @@ function RootLayoutContent() {
       </View>
     );
   }
-  if(!session){
-    return <Redirect href="/Auth/page" />;
-  }
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} onLayout={onLayoutRootView}>
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
-      {!session ? (
+      {!session || session==null? (
         <Redirect href="/Auth/page" />
       ) : (
         <Tabs
