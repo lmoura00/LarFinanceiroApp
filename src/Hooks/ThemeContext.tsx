@@ -1,8 +1,22 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { Appearance, ColorSchemeName } from 'react-native';
+import { Appearance, ColorSchemeName, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Interfaces para tipagem
+
+interface ThemeSizes {
+  s: number;
+  m: number;
+  l: number;
+  xl: number;
+}
+
+interface ThemeFontSizes {
+  small: number;
+  medium: number;
+  large: number;
+  xLarge: number;
+}
+
 interface ThemeColors {
   background: string;
   text: string;
@@ -10,17 +24,18 @@ interface ThemeColors {
   secondary: string;
   card: string;
   border: string;
+  
 }
 
 interface Theme {
   dark: boolean;
   colors: ThemeColors;
+  spacing: ThemeSizes; 
+  fontSizes: ThemeFontSizes;
+  borderRadius: ThemeSizes; 
 }
 
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-}
+const { width, height } = Dimensions.get('window');
 
 const lightTheme: Theme = {
   dark: false,
@@ -32,6 +47,9 @@ const lightTheme: Theme = {
     card: '#f0f0f0',
     border: '#e0e0e0',
   },
+  spacing: { s: width * 0.02, m: width * 0.04, l: width * 0.06, xl: width * 0.08 }, 
+  fontSizes: { small: width * 0.03, medium: width * 0.04, large: width * 0.05, xLarge: width * 0.07 }, 
+  borderRadius: { s: 4, m: 8, l: 12, xl: 16 },
 };
 
 const darkTheme: Theme = {
@@ -44,7 +62,15 @@ const darkTheme: Theme = {
     card: '#1e1e1e',
     border: '#2a2a2a',
   },
+  spacing: { s: width * 0.02, m: width * 0.04, l: width * 0.06, xl: width * 0.08 }, 
+  fontSizes: { small: width * 0.03, medium: width * 0.04, large: width * 0.05, xLarge: width * 0.07 }, 
+  borderRadius: { s: 4, m: 8, l: 12, xl: 16 },
 };
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+}
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ActivityIndicator, StatusBar } from 'react-native';
+import { View, ActivityIndicator, StatusBar, Dimensions } from 'react-native';
 import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,6 +9,8 @@ import { ThemeProvider, useTheme } from '@/Hooks/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
+
+const { width, height } = Dimensions.get('window');
 
 function RootLayoutContent() {
   const [session, setSession] = useState<any>(null);
@@ -77,16 +79,17 @@ function RootLayoutContent() {
             tabBarStyle: {
               backgroundColor: theme.colors.background,
               borderTopColor: theme.colors.border,
-              height: 60,
+              height: height * 0.08,
+              paddingBottom: height * 0.01,
             },
             tabBarActiveTintColor: theme.colors.primary,
             tabBarInactiveTintColor: theme.colors.secondary,
             tabBarLabelStyle: {
-              fontSize: 12,
-              paddingBottom: 5,
+              fontSize: width * 0.028,
+              paddingBottom: 0,
             },
             tabBarIconStyle: {
-              marginTop: 5,
+              marginTop: height * 0.005,
             },
           }}
         >

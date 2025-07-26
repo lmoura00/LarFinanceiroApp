@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/supabaseClient';
 import { useTheme } from '@/Hooks/ThemeContext';
@@ -11,6 +11,8 @@ interface Transaction {
   category?: string;
   expense_date: string;
 }
+
+const { width, height } = Dimensions.get('window');
 
 export default function DashboardScreen() {
   const [balance, setBalance] = useState<number>(0);
@@ -54,7 +56,7 @@ export default function DashboardScreen() {
           if (childrenError || !children) {
             throw new Error(childrenError?.message || "Erro ao buscar filhos.");
           }
-          
+
           const childrenIds = children.map(child => child.id);
 
           const { data: familyExpenses, error: expensesError } = await supabase
@@ -62,7 +64,7 @@ export default function DashboardScreen() {
             .select('*')
             .in('child_id', childrenIds)
             .order('created_at', { ascending: false });
-          
+
           if (expensesError) {
               throw new Error(expensesError.message);
           }
@@ -98,7 +100,7 @@ export default function DashboardScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
-      
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.text} />
@@ -108,13 +110,13 @@ export default function DashboardScreen() {
         <>
           <View style={styles.header}>
             <TouchableOpacity onPress={toggleTheme}>
-              <Ionicons name={theme.dark ? "sunny" : "moon"} size={24} color={theme.colors.text} />
+              <Ionicons name={theme.dark ? "sunny" : "moon"} size={theme.fontSizes.large} color={theme.colors.text} />
             </TouchableOpacity>
             {userName ? (
               <Text style={[styles.headerText, { color: theme.colors.text }]}>Olá, {userName}!</Text>
             ) : null}
             <TouchableOpacity>
-              <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
+              <Ionicons name="notifications-outline" size={theme.fontSizes.large} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -124,21 +126,21 @@ export default function DashboardScreen() {
             <Text style={[styles.balanceSubtitle, { color: theme.colors.secondary }]}>Saldo Total</Text>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsScrollView}>
-            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-              <Ionicons name="add-circle-outline" size={32} color={theme.colors.text} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScrollViewContent}>
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
+              <Ionicons name="add-circle-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Adicionar Gasto</Text>
             </View>
-            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-              <Ionicons name="wallet-outline" size={32} color={theme.colors.text} />
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
+              <Ionicons name="wallet-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Metas</Text>
             </View>
-            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-              <Ionicons name="checkmark-circle-outline" size={32} color={theme.colors.text} />
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
+              <Ionicons name="checkmark-circle-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Definir para</Text>
             </View>
-            <View style={[styles.actionCard, { backgroundColor: theme.colors.card }]}>
-              <Ionicons name="bar-chart-outline" size={32} color={theme.colors.text} />
+            <View style={[styles.actionCard, { backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
+              <Ionicons name="bar-chart-outline" size={theme.fontSizes.xl} color={theme.colors.text} />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>Orçamento</Text>
             </View>
           </ScrollView>
@@ -149,7 +151,7 @@ export default function DashboardScreen() {
               {transactions.map((transaction) => (
                 <View key={transaction.id} style={[styles.transactionItem, { borderBottomColor: theme.colors.border }]}>
                   <View style={[styles.transactionIconContainer, { backgroundColor: theme.colors.card }]}>
-                    <Ionicons name="bag-handle-outline" size={24} color={theme.colors.text} />
+                    <Ionicons name="bag-handle-outline" size={theme.fontSizes.medium} color={theme.colors.text} />
                   </View>
                   <View style={styles.transactionDetails}>
                     <Text style={[styles.transactionDescription, { color: theme.colors.text }]}>{transaction.description}</Text>
@@ -168,8 +170,8 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingTop: 50,
+    padding: width * 0.05,
+    paddingTop: height * 0,
   },
   loadingContainer: {
     flex: 1,
@@ -178,54 +180,55 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: width * 0.04,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: height * 0.025,
     alignItems: 'center',
   },
   headerText: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
   },
   balanceSection: {
-    marginBottom: 30,
+    marginBottom: height * 0.04,
   },
   balanceTitle: {
-    fontSize: 16,
+    fontSize: width * 0.04,
   },
   balanceAmount: {
-    fontSize: 42,
+    fontSize: width * 0.1,
     fontWeight: 'bold',
-    marginVertical: 5,
+    marginVertical: height * 0.005,
   },
   balanceSubtitle: {
-    fontSize: 14,
+    fontSize: width * 0.035,
   },
-  actionsScrollView: {
-    marginBottom: 20,
+  actionsScrollViewContent: {
+    paddingVertical: height * 0.01,
   },
   actionCard: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
+    width: width * 0.28,
+    height: width * 0.28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: width * 0.025,
   },
   actionText: {
-    marginTop: 5,
-    fontSize: 12,
+    marginTop: height * 0.005,
+    fontSize: width * 0.03,
+    textAlign: 'center',
   },
   transactionsSection: {
     flex: 1,
+    marginTop: height * 0.02,
   },
   transactionsTitle: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: height * 0.015,
   },
   transactionList: {
     flex: 1,
@@ -233,13 +236,13 @@ const styles = StyleSheet.create({
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: height * 0.015,
     borderBottomWidth: 1,
   },
   transactionIconContainer: {
-    padding: 10,
-    borderRadius: 25,
-    marginRight: 15,
+    padding: width * 0.025,
+    borderRadius: width * 0.06,
+    marginRight: width * 0.04,
   },
   transactionDetails: {
     flex: 1,
@@ -248,10 +251,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   transactionDescription: {
-    fontSize: 16,
+    fontSize: width * 0.04,
   },
   transactionAmount: {
-    fontSize: 16,
+    fontSize: width * 0.04,
     fontWeight: 'bold',
   },
   bottomNav: {

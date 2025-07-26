@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/Hooks/ThemeContext';
+
+const { width, height } = Dimensions.get('window');
 
 export default function GoalsScreen() {
   const { theme, toggleTheme } = useTheme();
@@ -9,14 +11,14 @@ export default function GoalsScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
-      
+
       <View style={styles.header}>
         <TouchableOpacity onPress={toggleTheme}>
-          <Ionicons name={theme.dark ? "sunny" : "moon"} size={24} color={theme.colors.text} />
+          <Ionicons name={theme.dark ? "sunny" : "moon"} size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerText, { color: theme.colors.text }]}>Minhas Metas</Text>
         <TouchableOpacity>
-          <Ionicons name="add-circle-outline" size={24} color={theme.colors.text} />
+          <Ionicons name="add-circle-outline" size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -25,26 +27,24 @@ export default function GoalsScreen() {
         <Text style={[styles.subtitle, { color: theme.colors.secondary }]}>
           Aqui você pode acompanhar suas metas de economia e gastos.
         </Text>
-        
-        {/* Placeholder para uma meta */}
-        <View style={[styles.goalCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+
+        <View style={[styles.goalCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.goalTitle, { color: theme.colors.text }]}>Viagem dos Sonhos</Text>
           <Text style={[styles.goalDetails, { color: theme.colors.secondary }]}>
             Progresso: R$ 500,00 de R$ 2.000,00
           </Text>
           <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: '25%', backgroundColor: theme.colors.primary }]} />
+            <View style={[styles.progressBar, { width: '25%', backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.s }]} />
           </View>
         </View>
 
-        {/* Outro placeholder de meta */}
-        <View style={[styles.goalCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+        <View style={[styles.goalCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.goalTitle, { color: theme.colors.text }]}>Comprar um Jogo Novo</Text>
           <Text style={[styles.goalDetails, { color: theme.colors.secondary }]}>
             Progresso: R$ 80,00 de R$ 150,00
           </Text>
           <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: '53%', backgroundColor: theme.colors.primary }]} />
+            <View style={[styles.progressBar, { width: '53%', backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.s }]} />
           </View>
         </View>
 
@@ -56,17 +56,17 @@ export default function GoalsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingTop: 50,
+    padding: width * 0.05,
+    paddingTop: height * 0,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: height * 0.025,
   },
   headerText: {
-    fontSize: 20,
+    fontSize: width * 0.05,
     fontWeight: 'bold',
   },
   content: {
@@ -74,41 +74,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: width * 0.06,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: height * 0.01,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: width * 0.04,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: height * 0.04,
   },
   goalCard: {
     width: '100%',
-    padding: 15,
-    borderRadius: 10,
+    padding: width * 0.04,
     borderWidth: 1,
-    marginBottom: 15,
+    marginBottom: height * 0.02,
     alignItems: 'flex-start',
   },
   goalTitle: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: height * 0.005,
   },
   goalDetails: {
-    fontSize: 14,
-    marginBottom: 10,
+    fontSize: width * 0.035,
+    marginBottom: height * 0.01,
   },
   progressBarContainer: {
     width: '100%',
-    height: 10,
-    backgroundColor: '#e0e0e0', // Light grey for the bar background
-    borderRadius: 5,
-    overflow: 'hidden',
+    height: height * 0.01,
+    backgroundColor: '#e0e0e0',
   },
   progressBar: {
     height: '100%',
-    borderRadius: 5,
   },
 });
