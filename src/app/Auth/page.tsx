@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, StatusBar, Dimensions } from 'react-native';
+import { Alert, StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, StatusBar, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/supabaseClient';
 import { AuthResponse } from '@supabase/supabase-js';
@@ -71,6 +71,14 @@ export default function AuthScreen() {
           <Ionicons name={theme.dark ? "sunny" : "moon"} size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
+      {
+        theme.dark ? (
+          <Image source={require('../../../assets/images/splash-icon-dark.png')} style={styles.logo} />
+        ) : (
+          <Image source={require('../../../assets/images/splash-icon-light.png')} style={styles.logo} />
+        )
+      }
+      
 
       <Text style={[styles.title, { color: theme.colors.text }]}>
         {isLoginView ? 'Bem-vindo(a) de volta!' : 'Criar sua conta'}
@@ -179,4 +187,10 @@ const styles = StyleSheet.create({
     marginTop: height * 0.025,
     fontSize: width * 0.038,
   },
+  logo:{
+    width: width * 0.3,
+    height: width * 0.3,
+    alignSelf: 'center',
+    marginBottom: height * 0.04,
+  }
 });
