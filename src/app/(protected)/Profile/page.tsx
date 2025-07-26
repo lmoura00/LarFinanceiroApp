@@ -1,66 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Alert, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/Hooks/ThemeContext';
-import { supabase } from '@/supabaseClient';
-import { Redirect, useRouter } from 'expo-router';
+import { useAuth } from '@/Hooks/AuthContext'; 
+import { Redirect } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
-  const router = useRouter();
-  const [loading, setLoading] = useState<boolean>(true);
-  const [userName, setUserName] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('');
-  const [userRole, setUserRole] = useState<string>('');
-  const [memberSince, setMemberSince] = useState<string>('');
+  const { user, profile, loading, signOut, session } = useAuth(); 
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      setLoading(true);
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          throw new Error(sessionError?.message || "Usuário não autenticado.");
-        }
-
-    
-        const userId = session.user.id;
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('name, email, role, created_at')
-          .eq('id', userId)
-          .single();
-
-        if (profileError || !profile) {
-          throw new Error(profileError?.message || "Perfil do usuário não encontrado.");
-        }
-
-        setUserName(profile.name || 'Nome do Usuário');
-        setUserEmail(profile.email || 'email@exemplo.com');
-        setUserRole(profile.role || 'Membro');
-        setMemberSince(profile.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR') : 'Data Indisponível');
-
-      } catch (error: any) {
-        Alert.alert("Erro ao carregar perfil", error.message);
-        console.error("Erro ao buscar dados do usuário:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      Alert.alert('Erro ao sair', error.message);
-    }
-  };
   
-
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
@@ -68,6 +19,10 @@ export default function ProfileScreen() {
         <Text style={{ color: theme.colors.text, marginTop: theme.spacing.m }}>Carregando perfil...</Text>
       </View>
     );
+  }
+
+  if (!session) {
+    return <Redirect href="/Auth/page" />;
   }
 
   return (
@@ -87,22 +42,24 @@ export default function ProfileScreen() {
       <View style={styles.content}>
         <Ionicons name="person-circle-outline" size={width * 0.3} color={theme.colors.primary} style={styles.profileIcon} />
 
-        <Text style={[styles.userName, { color: theme.colors.text }]}>{userName}</Text>
-        <Text style={[styles.userEmail, { color: theme.colors.secondary }]}>{userEmail}</Text>
+        <Text style={[styles.userName, { color: theme.colors.text }]}>{profile?.name || 'Nome do Usuário'}</Text>
+        <Text style={[styles.userEmail, { color: theme.colors.secondary }]}>{profile?.email || 'email@exemplo.com'}</Text>
 
         <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Função:</Text>
-          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>{userRole}</Text>
+          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>{profile?.role || 'Membro'}</Text>
         </View>
 
         <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Membro desde:</Text>
-          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>{memberSince}</Text>
+          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>
+            {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR') : 'Data Indisponível'}
+          </Text>
         </View>
 
         <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
-          onPress={handleLogout}
+          onPress={signOut} 
         >
           <Text style={styles.logoutButtonText}>Sair</Text>
         </TouchableOpacity>

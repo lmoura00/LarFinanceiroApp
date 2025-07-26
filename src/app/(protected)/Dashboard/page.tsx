@@ -10,10 +10,11 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/supabaseClient";
 import { useTheme } from "@/Hooks/ThemeContext";
+import { useAuth } from '@/Hooks/AuthContext';
 import { Redirect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 interface Transaction {
   id: string;
@@ -28,54 +29,38 @@ const { width, height } = Dimensions.get("window");
 export default function DashboardScreen() {
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [userName, setUserName] = useState<string>("");
   const { theme, toggleTheme } = useTheme();
+  const { user, profile, loading, session } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.text} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+          Carregando dados...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <Redirect href="/Auth/page" />;
+  }
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      if (!session) {
-        return <Redirect href="/Auth/page" />;
+    const fetchExpenses = async () => {
+      if (!user || !profile) {
+        return;
       }
-      setLoading(true);
 
       try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          throw new Error(sessionError?.message || "Usuário não autenticado.");
-        }
-
-        const userId = session.user.id;
-
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role, name")
-          .eq("id", userId)
-          .single();
-
-        if (profileError || !profile) {
-          throw new Error(
-            profileError?.message || "Perfil do usuário não encontrado."
-          );
-        }
-
-        setUserName(profile.name || "");
-
         let expensesData: Transaction[] = [];
 
         if (profile.role === "admin") {
           const { data: children, error: childrenError } = await supabase
             .from("children")
             .select("id")
-            .eq("parent_id", userId);
+            .eq("parent_id", user.id);
 
           if (childrenError || !children) {
             throw new Error(childrenError?.message || "Erro ao buscar filhos.");
@@ -86,7 +71,7 @@ export default function DashboardScreen() {
           const { data: familyExpenses, error: expensesError } = await supabase
             .from("expenses")
             .select("*")
-            .in("child_id", childrenIds)
+            .in("user_id", childrenIds)
             .order("created_at", { ascending: false });
 
           if (expensesError) {
@@ -97,7 +82,7 @@ export default function DashboardScreen() {
           const { data: myExpenses, error: expensesError } = await supabase
             .from("expenses")
             .select("*")
-            .eq("child_id", userId)
+            .eq("user_id", user.id)
             .order("created_at", { ascending: false });
 
           if (expensesError) {
@@ -114,13 +99,12 @@ export default function DashboardScreen() {
         setTransactions(expensesData.slice(0, 5));
       } catch (error: any) {
         Alert.alert("Erro", error.message);
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    fetchExpenses();
+  }, [user, profile]);
+
 
   return (
     <View
@@ -128,14 +112,6 @@ export default function DashboardScreen() {
     >
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.text} />
-          <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-            Carregando dados...
-          </Text>
-        </View>
-      ) : (
         <>
           <View style={styles.header}>
             <TouchableOpacity onPress={toggleTheme}>
@@ -145,9 +121,9 @@ export default function DashboardScreen() {
                 color={theme.colors.text}
               />
             </TouchableOpacity>
-            {userName ? (
+            {profile?.name ? (
               <Text style={[styles.headerText, { color: theme.colors.text }]}>
-                Olá, {userName}!
+                Olá, {profile.name}!
               </Text>
             ) : null}
             <TouchableOpacity>
@@ -313,7 +289,9 @@ export default function DashboardScreen() {
             </View>
           </View>
         </>
-      )}
+      )
+ 
+
     </View>
   );
 }

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, StatusBar, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/supabaseClient';
-import { AuthResponse } from '@supabase/supabase-js';
 import { useTheme } from '@/Hooks/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/Hooks/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,54 +11,31 @@ export default function AuthScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [name, setName] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
   const [isLoginView, setIsLoginView] = useState<boolean>(true);
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { signIn, signUp, loading, session } = useAuth();
 
-  async function signInWithEmail(): Promise<void> {
-    setLoading(true);
-    const { error }: AuthResponse = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-
-    if (error) {
-      Alert.alert('Erro no Login', error.message);
-    } else {
+  useEffect(() => {
+    if (session) {
       router.replace('/(protected)/Dashboard/page');
     }
-    setLoading(false);
+  }, [session]); 
+
+  async function handleSignIn(): Promise<void> {
+    const { success, error } = await signIn(email, password);
+    if (!success) {
+      Alert.alert('Erro no Login', error || 'Ocorreu um erro desconhecido.');
+    }
   }
 
-  async function signUpWithEmail(): Promise<void> {
-    setLoading(true);
-    const { data: { user }, error: authError }: AuthResponse = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
-
-    if (authError || !user) {
-      Alert.alert('Erro no Cadastro', authError?.message || 'Erro ao registrar usuário.');
-      setLoading(false);
-      return;
-    }
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({ id: user.id, role: 'admin', email: user.email, name: name });
-
-    if (profileError) {
-      Alert.alert('Erro no Cadastro', 'Ocorreu um erro ao criar seu perfil. Por favor, tente novamente.');
+  async function handleSignUp(): Promise<void> {
+    const { success, error } = await signUp(email, password, name);
+    if (!success) {
+      Alert.alert('Erro no Cadastro', error || 'Ocorreu um erro desconhecido.');
     } else {
-      Alert.alert(
-        'Verifique seu e-mail',
-        'Seu cadastro foi realizado. Por favor, confirme seu e-mail para continuar.'
-      );
-      setIsLoginView(true);
+        setIsLoginView(true);
     }
-
-    setLoading(false);
   }
 
   return (
@@ -115,7 +91,7 @@ export default function AuthScreen() {
       </View>
       <TouchableOpacity
         style={[styles.button, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
-        onPress={isLoginView ? signInWithEmail : signUpWithEmail}
+        onPress={isLoginView ? handleSignIn : handleSignUp}
         disabled={loading}
       >
         <Text style={styles.buttonText}>
