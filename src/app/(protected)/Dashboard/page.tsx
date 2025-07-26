@@ -16,6 +16,7 @@ export default function DashboardScreen() {
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [userName, setUserName] = useState<string>('');
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -32,13 +33,15 @@ export default function DashboardScreen() {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, name')
           .eq('id', userId)
           .single();
 
         if (profileError || !profile) {
           throw new Error(profileError?.message || "Perfil do usuário não encontrado.");
         }
+
+        setUserName(profile.name || '');
 
         let expensesData: Transaction[] = [];
 
@@ -107,6 +110,9 @@ export default function DashboardScreen() {
             <TouchableOpacity onPress={toggleTheme}>
               <Ionicons name={theme.dark ? "sunny" : "moon"} size={24} color={theme.colors.text} />
             </TouchableOpacity>
+            {userName ? (
+              <Text style={[styles.headerText, { color: theme.colors.text }]}>Olá, {userName}!</Text>
+            ) : null}
             <TouchableOpacity>
               <Ionicons name="notifications-outline" size={24} color={theme.colors.text} />
             </TouchableOpacity>
@@ -114,7 +120,7 @@ export default function DashboardScreen() {
 
           <View style={styles.balanceSection}>
             <Text style={[styles.balanceTitle, { color: theme.colors.secondary }]}>Família Financeira</Text>
-            <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>$ {balance.toFixed(2)}</Text>
+            <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>{balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Text>
             <Text style={[styles.balanceSubtitle, { color: theme.colors.secondary }]}>Saldo Total</Text>
           </View>
 
@@ -147,26 +153,11 @@ export default function DashboardScreen() {
                   </View>
                   <View style={styles.transactionDetails}>
                     <Text style={[styles.transactionDescription, { color: theme.colors.text }]}>{transaction.description}</Text>
-                    <Text style={[styles.transactionAmount, { color: theme.colors.text }]}>$ {transaction.amount.toFixed(2)}</Text>
+                    <Text style={[styles.transactionAmount, { color: theme.colors.text }]}>{transaction.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Text>
                   </View>
                 </View>
               ))}
             </View>
-          </View>
-          
-          <View style={[styles.bottomNav, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="home" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="person-outline" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navItem}>
-                <Ionicons name="wallet-outline" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
           </View>
         </>
       )}
@@ -193,6 +184,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
+    alignItems: 'center',
+  },
+  headerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   balanceSection: {
     marginBottom: 30,

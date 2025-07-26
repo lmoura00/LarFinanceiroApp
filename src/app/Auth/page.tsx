@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function AuthScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [name, setName] = useState<string>(''); // Add state for name
   const [loading, setLoading] = useState<boolean>(false);
   const [isLoginView, setIsLoginView] = useState<boolean>(true);
   const router = useRouter();
@@ -42,9 +43,10 @@ export default function AuthScreen() {
       return;
     }
 
+    // Insert user profile with the new 'name' field
     const { error: profileError } = await supabase
       .from('profiles')
-      .insert({ id: user.id, role: 'admin', email: user.email });
+      .insert({ id: user.id, role: 'admin', email: user.email, name: name }); // Include 'name' here
 
     if (profileError) {
       Alert.alert('Erro no Cadastro', 'Ocorreu um erro ao criar seu perfil. Por favor, tente novamente.');
@@ -73,6 +75,17 @@ export default function AuthScreen() {
         {isLoginView ? 'Bem-vindo(a) de volta!' : 'Criar sua conta'}
       </Text>
       <View style={styles.inputContainer}>
+        {/* Add TextInput for Name in Sign Up View */}
+        {!isLoginView && (
+          <TextInput
+            style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text }]}
+            onChangeText={(text) => setName(text)}
+            value={name}
+            placeholder="Nome Completo"
+            placeholderTextColor={theme.colors.secondary}
+            autoCapitalize="words"
+          />
+        )}
         <TextInput
           style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text }]}
           onChangeText={(text) => setEmail(text)}
