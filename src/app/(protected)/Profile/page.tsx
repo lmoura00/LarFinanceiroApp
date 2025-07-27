@@ -95,7 +95,7 @@ export default function ProfileScreen() {
         <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Função:</Text>
           <Text style={[styles.infoText, { color: theme.colors.secondary }]}>
-            {profile?.role === 'child' ? 'Filho' : (profile?.role || 'Membro')}
+            {profile?.role === 'child' ? 'Filho' : (profile?.role ==='admin' ? 'Responsável' : profile?.role || 'Membro')}
           </Text>
         </View>
 

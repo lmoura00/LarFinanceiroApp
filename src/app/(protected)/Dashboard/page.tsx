@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/supabaseClient";
 import { useTheme } from "@/Hooks/ThemeContext";
 import { useAuth } from '@/Hooks/AuthContext';
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router"; 
 
 interface Transaction {
   id: string;
@@ -32,6 +32,7 @@ export default function DashboardScreen() {
   const [allowanceInfo, setAllowanceInfo] = useState<{ amount: number | null, frequency: string | null } | null>(null);
   const { theme, toggleTheme } = useTheme();
   const { user, profile, loading, session } = useAuth();
+  const router = useRouter(); 
 
   if (loading) {
     return (
@@ -124,6 +125,10 @@ export default function DashboardScreen() {
   }, [user, profile]);
 
 
+  const handleAddExpensePress = () => {
+    router.push('/(protected)/AddExpense/page');
+  };
+
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -199,7 +204,7 @@ export default function DashboardScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.actionsScrollViewContent}
           >
-            <View
+            <TouchableOpacity 
               style={[
                 styles.actionCard,
                 {
@@ -207,6 +212,7 @@ export default function DashboardScreen() {
                   borderRadius: theme.borderRadius.m,
                 },
               ]}
+              onPress={handleAddExpensePress} 
             >
               <Ionicons
                 name="add-circle-outline"
@@ -216,8 +222,8 @@ export default function DashboardScreen() {
               <Text style={[styles.actionText, { color: theme.colors.text }]}>
                 Adicionar Gasto
               </Text>
-            </View>
-            <View
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
                 styles.actionCard,
                 {
@@ -225,6 +231,7 @@ export default function DashboardScreen() {
                   borderRadius: theme.borderRadius.m,
                 },
               ]}
+              onPress={() => router.push('/(protected)/Goals/page')}
             >
               <Ionicons
                 name="wallet-outline"
@@ -234,8 +241,9 @@ export default function DashboardScreen() {
               <Text style={[styles.actionText, { color: theme.colors.text }]}>
                 Metas
               </Text>
-            </View>
-            <View
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={[
                 styles.actionCard,
                 {
@@ -252,7 +260,7 @@ export default function DashboardScreen() {
               <Text style={[styles.actionText, { color: theme.colors.text }]}>
                 Prêmios
               </Text>
-            </View>
+            </TouchableOpacity>
             <View
               style={[
                 styles.actionCard,
@@ -280,52 +288,57 @@ export default function DashboardScreen() {
               Transações Recentes
             </Text>
             <View style={styles.transactionList}>
-              {transactions.map((transaction) => (
-                <View
-                  key={transaction.id}
-                  style={[
-                    styles.transactionItem,
-                    { borderBottomColor: theme.colors.border },
-                  ]}
-                >
+              {transactions.length === 0 ? (
+                <Text style={[styles.noTransactionsText, { color: theme.colors.secondary }]}>
+                  Nenhuma transação recente.
+                </Text>
+              ) : (
+                transactions.map((transaction) => (
                   <View
+                    key={transaction.id}
                     style={[
-                      styles.transactionIconContainer,
-                      { backgroundColor: theme.colors.card },
+                      styles.transactionItem,
+                      { borderBottomColor: theme.colors.border },
                     ]}
                   >
-                    <Ionicons
-                      name="bag-handle-outline"
-                      size={theme.fontSizes.medium}
-                      color={theme.colors.text}
-                    />
-                  </View>
-                  <View style={styles.transactionDetails}>
-                    <Text
+                    <View
                       style={[
-                        styles.transactionDescription,
-                        { color: theme.colors.text },
+                        styles.transactionIconContainer,
+                        { backgroundColor: theme.colors.card },
                       ]}
                     >
-                      {transaction.description}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.transactionAmount,
-                        { color: theme.colors.text },
-                      ]}
-                    >
-                      {transaction.amount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </Text>
+                      <Ionicons
+                        name="bag-handle-outline"
+                        size={theme.fontSizes.medium}
+                        color={theme.colors.text}
+                      />
+                    </View>
+                    <View style={styles.transactionDetails}>
+                      <Text
+                        style={[
+                          styles.transactionDescription,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {transaction.description}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.transactionAmount,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {transaction.amount.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))
+              )}
             </View>
           </View>
-
     </View>
   );
 }
@@ -356,7 +369,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   balanceSection: {
-    marginBottom: height * 0.04,
+    marginBottom: height * 0.02,
   },
   balanceTitle: {
     fontSize: width * 0.04,
@@ -386,7 +399,7 @@ const styles = StyleSheet.create({
   },
   transactionsSection: {
     flex: 1,
-    marginTop: height * 0.02,
+    marginTop: height * 0.01,
   },
   transactionsTitle: {
     fontSize: width * 0.045,
@@ -425,6 +438,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingVertical: 15,
     borderTopWidth: 1,
+  },
+  noTransactionsText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: width * 0.04,
   },
   navItem: {
     alignItems: "center",

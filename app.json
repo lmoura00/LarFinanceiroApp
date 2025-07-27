@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.lsm-00.LarFinanceiroApp"
+      "bundleIdentifier": "com.lsm-00.LarFinanceiroApp",
+       "config": {
+        "googleMapsApiKey":  "process.env.GOOGLE_MAPS_API_KEY"
+        }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +26,12 @@
         "backgroundColor": "#222222"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.lsm00.LarFinanceiroApp"
+      "package": "com.lsm00.LarFinanceiroApp",
+       "config": {
+        "googleMaps": {
+          "apiKey": "process.env.GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "web": {
       "bundler": "metro",

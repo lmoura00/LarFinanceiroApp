@@ -380,7 +380,10 @@ export default function DependentsScreen() {
     `;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
       if (Platform.OS === "web") {
         window.open(uri, "_blank");
         Alert.alert(
@@ -392,6 +395,7 @@ export default function DependentsScreen() {
           mimeType: "application/pdf",
           dialogTitle: `Dados de Acesso - ${childName}`,
           UTI: "com.adobe.pdf",
+          filename: `Acesso_${childName.replace(/\s/g, '_')}_LarFinanceiro.pdf`,
         });
       } else {
         Alert.alert(

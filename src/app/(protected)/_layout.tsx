@@ -90,6 +90,13 @@ export default function ProtectedLayout() {
           headerShown: false,
         }}
       />
+       <Tabs.Screen 
+        name="AddExpense/page"
+        options={{
+          headerShown: false,
+         href: null,
+        }}
+      />
     </Tabs>
   );
 }
