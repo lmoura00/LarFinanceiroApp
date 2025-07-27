@@ -1,18 +1,60 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Alert, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/Hooks/ThemeContext';
-import { useAuth } from '@/Hooks/AuthContext'; 
+import { useAuth } from '@/Hooks/AuthContext';
 import { Redirect } from 'expo-router';
+import { supabase } from '@/supabaseClient';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
-  const { user, profile, loading, signOut, session } = useAuth(); 
+  const { user, profile, loading, signOut, session } = useAuth();
+  const [parentName, setParentName] = useState<string | null>(null);
+  const [fetchingParentName, setFetchingParentName] = useState(false);
 
-  
-  if (loading) {
+  useEffect(() => {
+    const fetchParentName = async () => {
+      if (profile?.role === 'child' && user?.id) {
+        setFetchingParentName(true);
+        try {
+          const { data: childData, error: childError } = await supabase
+            .from('children')
+            .select('parent_id')
+            .eq('id', user.id)
+            .single();
+
+          if (childError && childError.code !== 'PGRST116') {
+            throw childError;
+          }
+
+          if (childData?.parent_id) {
+            const { data: parentProfileData, error: parentProfileError } = await supabase
+              .from('profiles')
+              .select('name')
+              .eq('id', childData.parent_id)
+              .single();
+
+            if (parentProfileError && parentProfileError.code !== 'PGRST116') {
+              throw parentProfileError;
+            }
+            setParentName(parentProfileData?.name || null);
+          }
+        } catch (error: any) {
+          console.error('Erro ao buscar nome do responsável:', error.message);
+          Alert.alert('Erro', 'Não foi possível carregar o nome do responsável.');
+          setParentName(null);
+        } finally {
+          setFetchingParentName(false);
+        }
+      }
+    };
+
+    fetchParentName();
+  }, [profile, user]);
+
+  if (loading || fetchingParentName) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.text} />
@@ -47,8 +89,17 @@ export default function ProfileScreen() {
 
         <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Função:</Text>
-          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>{profile?.role || 'Membro'}</Text>
+          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>
+            {profile?.role === 'child' ? 'Filho' : (profile?.role || 'Membro')}
+          </Text>
         </View>
+
+        {profile?.role === 'child' && parentName && (
+          <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
+            <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Responsável:</Text>
+            <Text style={[styles.infoText, { color: theme.colors.secondary }]}>{parentName}</Text>
+          </View>
+        )}
 
         <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Membro desde:</Text>
@@ -59,7 +110,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
-          onPress={signOut} 
+          onPress={signOut}
         >
           <Text style={styles.logoutButtonText}>Sair</Text>
         </TouchableOpacity>

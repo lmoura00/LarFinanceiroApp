@@ -49,6 +49,7 @@ const generateRandomPassword = (length: number = 16): string => {
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * characters.length));
   }
+
   return result;
 };
 
@@ -130,16 +131,23 @@ export default function DependentsScreen() {
     }
 
     setAddingChild(true);
-    let originalUserEmail: string | undefined;
+    let originalSessionData: { access_token: string; refresh_token: string } | null = null;
 
     try {
-      originalUserEmail = user.email;
+      const { data: { session: currentParentSession }, error: getSessionError } = await supabase.auth.getSession();
+      if (getSessionError || !currentParentSession) {
+        throw new Error(getSessionError?.message || 'Não foi possível obter a sessão do responsável.');
+      }
+      originalSessionData = {
+        access_token: currentParentSession.access_token,
+        refresh_token: currentParentSession.refresh_token,
+      };
 
       const generatedPassword = generateRandomPassword();
 
       const { data: userData, error: authError } = await supabase.auth.signUp({
         email: newChildEmail,
-        password: generatedPassword,
+        password: "123456",
       });
 
       if (authError || !userData?.user) {
@@ -185,22 +193,30 @@ export default function DependentsScreen() {
 
       Alert.alert(
         'Dependente Adicionado!',
-        `A conta de ${newChildName} foi criada com o e-mail ${newChildEmail}. \n\nPara que o dependente acesse a conta, ele/ela deve usar a função "Esqueci a Senha" na tela de login para definir a sua própria senha. \n\n*Por segurança, a senha criada não é visível ou armazenada por nós.*`
+        `A conta de ${newChildName} foi criada com o e-mail ${newChildEmail}. \n\nA senha padrão é "123456". \n\nO dependente deve acessar a conta e definir uma nova senha.`,
       );
 
-      const { data: { session: currentSessionAfterChildCreation } } = await supabase.auth.getSession();
-
-      if (!currentSessionAfterChildCreation || currentSessionAfterChildCreation.user.id !== user.id) {
-          Alert.alert('Sessão Trocada', 'Sua sessão foi temporariamente trocada para o dependente. Redirecionando para o login para restaurar sua sessão de responsável.');
-          await supabase.auth.signOut();
-          // O redirecionamento para /Auth/page será tratado pelo AuthContext devido ao signOut
-      }
     } catch (error: any) {
       Alert.alert('Erro', 'Não foi possível adicionar o dependente: ' + error.message);
     } finally {
       setAddingChild(false);
-      // Forçar re-busca da lista de dependentes para garantir que a UI está atualizada.
-      // fetchChildren já fará isso com base no user do AuthContext.
+      if (originalSessionData) {
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: originalSessionData.access_token,
+          refresh_token: originalSessionData.refresh_token,
+        });
+        if (setSessionError) {
+          console.error('Erro ao restaurar a sessão do responsável:', setSessionError.message);
+          Alert.alert('Aviso', 'Ocorreu um erro ao restaurar sua sessão. Por favor, faça login novamente.');
+          await supabase.auth.signOut();
+        } else {
+          await supabase.auth.refreshSession();
+          console.log('Sessão do responsável restaurada com sucesso.');
+        }
+      } else {
+        console.warn('originalSessionData não estava disponível. Forçando logout para segurança.');
+        await supabase.auth.signOut();
+      }
     }
   };
 

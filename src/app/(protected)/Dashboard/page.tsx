@@ -10,11 +10,11 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/supabaseClient";
 import { useTheme } from "@/Hooks/ThemeContext";
 import { useAuth } from '@/Hooks/AuthContext';
 import { Redirect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 interface Transaction {
   id: string;
@@ -29,6 +29,7 @@ const { width, height } = Dimensions.get("window");
 export default function DashboardScreen() {
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allowanceInfo, setAllowanceInfo] = useState<{ amount: number | null, frequency: string | null } | null>(null);
   const { theme, toggleTheme } = useTheme();
   const { user, profile, loading, session } = useAuth();
 
@@ -48,7 +49,7 @@ export default function DashboardScreen() {
   }
 
   useEffect(() => {
-    const fetchExpenses = async () => {
+    const fetchExpensesAndAllowance = async () => {
       if (!user || !profile) {
         return;
       }
@@ -56,7 +57,7 @@ export default function DashboardScreen() {
       try {
         let expensesData: Transaction[] = [];
 
-        if (profile.role === "admin") {
+        if (profile.role === "admin" || profile.role === "responsible") {
           const { data: children, error: childrenError } = await supabase
             .from("children")
             .select("id")
@@ -78,7 +79,8 @@ export default function DashboardScreen() {
             throw new Error(expensesError.message);
           }
           expensesData = familyExpenses;
-        } else {
+
+        } else if (profile.role === "child") {
           const { data: myExpenses, error: expensesError } = await supabase
             .from("expenses")
             .select("*")
@@ -89,6 +91,22 @@ export default function DashboardScreen() {
             throw new Error(expensesError.message);
           }
           expensesData = myExpenses;
+
+          const { data: childData, error: childError } = await supabase
+            .from("children")
+            .select("allowance_amount, allowance_frequency")
+            .eq("id", user.id)
+            .single();
+
+          if (childError && childError.code !== 'PGRST116') {
+              throw new Error(childError.message);
+          }
+          if (childData) {
+              setAllowanceInfo({
+                  amount: childData.allowance_amount,
+                  frequency: childData.allowance_frequency
+              });
+          }
         }
 
         const totalBalance = expensesData.reduce(
@@ -102,7 +120,7 @@ export default function DashboardScreen() {
       }
     };
 
-    fetchExpenses();
+    fetchExpensesAndAllowance();
   }, [user, profile]);
 
 
@@ -111,8 +129,6 @@ export default function DashboardScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
-
-        <>
           <View style={styles.header}>
             <TouchableOpacity onPress={toggleTheme}>
               <Ionicons
@@ -141,20 +157,41 @@ export default function DashboardScreen() {
             >
               Família Financeira
             </Text>
-            <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>
-              {balance.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </Text>
-            <Text
-              style={[
-                styles.balanceSubtitle,
-                { color: theme.colors.secondary },
-              ]}
-            >
-              Saldo Total
-            </Text>
+            {profile?.role === 'child' && allowanceInfo && allowanceInfo.amount !== null ? (
+                <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>
+                    {allowanceInfo.amount.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                    })}
+                </Text>
+            ) : (
+                <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>
+                    {balance.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                    })}
+                </Text>
+            )}
+
+            {profile?.role === 'child' && allowanceInfo && allowanceInfo.amount !== null ? (
+                <Text
+                    style={[
+                        styles.balanceSubtitle,
+                        { color: theme.colors.secondary },
+                    ]}
+                >
+                    Mesada {allowanceInfo.frequency ? `(${allowanceInfo.frequency})` : ''}
+                </Text>
+            ) : (
+                <Text
+                    style={[
+                        styles.balanceSubtitle,
+                        { color: theme.colors.secondary },
+                    ]}
+                >
+                    Saldo Total
+                </Text>
+            )}
           </View>
 
           <ScrollView
@@ -208,12 +245,12 @@ export default function DashboardScreen() {
               ]}
             >
               <Ionicons
-                name="checkmark-circle-outline"
+                name="medal-outline"
                 size={theme.fontSizes.xLarge}
                 color={theme.colors.text}
               />
               <Text style={[styles.actionText, { color: theme.colors.text }]}>
-                Definir para
+                Prêmios
               </Text>
             </View>
             <View
@@ -288,9 +325,6 @@ export default function DashboardScreen() {
               ))}
             </View>
           </View>
-        </>
-      )
- 
 
     </View>
   );
