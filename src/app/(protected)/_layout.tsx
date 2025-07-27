@@ -1,12 +1,13 @@
-import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/Hooks/ThemeContext';
-import { useAuth } from '@/Hooks/AuthContext';
+import React from "react";
+import { Tabs, Redirect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/Hooks/ThemeContext";
+import { useAuth } from "@/Hooks/AuthContext"; // Verifique se o caminho está correto aqui
+import { View } from "react-native";
 
 export default function ProtectedLayout() {
   const { theme } = useTheme();
-  const { session, loading } = useAuth();
+  const { session, loading, profile } = useAuth();
 
   if (loading) {
     return null;
@@ -15,6 +16,9 @@ export default function ProtectedLayout() {
   if (!session) {
     return <Redirect href="/Auth/page" />;
   }
+
+  const isResponsibleUser =
+    profile?.role === "admin" || profile?.role === "responsible";
 
   return (
     <Tabs
@@ -34,7 +38,7 @@ export default function ProtectedLayout() {
       <Tabs.Screen
         name="Dashboard/page"
         options={{
-          title: 'Início',
+          title: "Início",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
           ),
@@ -43,28 +47,47 @@ export default function ProtectedLayout() {
       <Tabs.Screen
         name="Goals/page"
         options={{
-          title: 'Metas',
+          title: "Metas",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trophy-outline" color={color} size={size} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="Dependents/page"
-        options={{
-          title: 'Dependentes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" color={color} size={size} /> 
-          ),
-        }}
-      />
+
+      {isResponsibleUser ? (
+        <Tabs.Screen
+          name="Dependents/page"
+          options={{
+            title: "Dependentes",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people-outline" color={color} size={size} />
+            ),
+          }}
+        />
+      ) : (
+        <Tabs.Screen
+          name="Dependents/page"
+          options={{
+            title: "Dependentes",
+            href: null,
+          }}
+        />
+      )}
       <Tabs.Screen
         name="Profile/page"
         options={{
-          title: 'Perfil',
+          title: "Perfil",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" color={color} size={size} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="EditProfile/page"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

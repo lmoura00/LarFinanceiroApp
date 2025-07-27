@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/Hooks/ThemeContext';
 import { useAuth } from '@/Hooks/AuthContext';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router'; 
 import { supabase } from '@/supabaseClient';
 
 const { width, height } = Dimensions.get('window');
@@ -13,6 +13,7 @@ export default function ProfileScreen() {
   const { user, profile, loading, signOut, session } = useAuth();
   const [parentName, setParentName] = useState<string | null>(null);
   const [fetchingParentName, setFetchingParentName] = useState(false);
+  const router = useRouter(); 
 
   useEffect(() => {
     const fetchParentName = async () => {
@@ -67,6 +68,10 @@ export default function ProfileScreen() {
     return <Redirect href="/Auth/page" />;
   }
 
+  const handleEditProfile = () => {
+    router.push('/(protected)/EditProfile/page');
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
@@ -76,7 +81,7 @@ export default function ProfileScreen() {
           <Ionicons name={theme.dark ? "sunny" : "moon"} size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerText, { color: theme.colors.text }]}>Meu Perfil</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleEditProfile}> 
           <Ionicons name="create-outline" size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
