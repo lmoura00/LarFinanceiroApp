@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
   transactionsSection: {
     flex: 1,
-    marginTop: height * 0.01,
+    marginTop: (height * 0.01)-420,
   },
   transactionsTitle: {
     fontSize: width * 0.045,

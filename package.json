@@ -37,7 +37,9 @@
     "react-native-web": "~0.20.0",
     "expo-image-picker": "~16.1.4",
     "expo-location": "~18.1.6",
-    "expo-file-system": "~18.1.11"
+    "expo-file-system": "~18.1.11",
+    "expo-local-authentication": "~16.0.5",
+    "expo-secure-store": "~14.2.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
