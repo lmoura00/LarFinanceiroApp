@@ -1,3 +1,4 @@
+// src/app/(protected)/EditProfile/page.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Dimensions, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +16,10 @@ export default function EditProfileScreen() {
 
   const [name, setName] = useState<string>(profile?.name || '');
   const [email, setEmail] = useState<string>(profile?.email || '');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -26,7 +30,7 @@ export default function EditProfileScreen() {
 
   const handleUpdateProfile = async () => {
     if (!user || !profile) {
-      Alert.alert('Erro', 'Usuário não autenticado ou perfil não carregado.');
+      Alert.alert('Erro', 'Utilizador não autenticado ou perfil não carregado.');
       return;
     }
 
@@ -37,7 +41,6 @@ export default function EditProfileScreen() {
 
     setIsUpdating(true);
     try {
-      // 1. Atualizar o nome no perfil (profiles table)
       const { error: profileUpdateError } = await supabase
         .from('profiles')
         .update({ name: name.trim() })
@@ -47,7 +50,6 @@ export default function EditProfileScreen() {
         throw new Error(profileUpdateError.message || 'Erro ao atualizar o nome do perfil.');
       }
 
-      // 2. Tentar atualizar o e-mail (auth.users table)
       if (email.trim() !== profile.email) {
         const { error: emailUpdateError } = await supabase.auth.updateUser({
           email: email.trim(),
@@ -56,11 +58,10 @@ export default function EditProfileScreen() {
         if (emailUpdateError) {
           throw new Error(emailUpdateError.message || 'Erro ao atualizar o e-mail.');
         }
-        Alert.alert('Sucesso', 'E-mail atualizado com sucesso! Por favor, verifique seu novo e-mail para confirmá-lo.');
+        Alert.alert('Sucesso', 'E-mail atualizado! Por favor, verifique o seu novo e-mail para confirmá-lo.');
       }
 
       Alert.alert('Sucesso', 'Perfil atualizado!');
-      router.back(); // Volta para a tela de perfil
 
     } catch (error: any) {
       console.error('Erro ao atualizar perfil:', error.message);
@@ -70,11 +71,55 @@ export default function EditProfileScreen() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!user) {
+      Alert.alert('Erro', 'Utilizador não autenticado.');
+      return;
+    }
+
+    if (!newPassword.trim() || !confirmNewPassword.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha a nova palavra-passe e a confirmação.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      Alert.alert('Erro', 'A nova palavra-passe e a confirmação não coincidem.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Erro', 'A nova palavra-passe deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Erro ao alterar a palavra-passe.');
+      }
+
+      Alert.alert('Sucesso', 'Palavra-passe alterada com sucesso!');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      router.back();
+
+    } catch (error: any) {
+      console.error('Erro ao alterar palavra-passe:', error.message);
+      Alert.alert('Erro na Alteração de Palavra-Passe', error.message);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.text} />
-        <Text style={{ color: theme.colors.text, marginTop: theme.spacing.m }}>Carregando perfil para edição...</Text>
+        <Text style={{ color: theme.colors.text, marginTop: theme.spacing.m }}>A carregar perfil para edição...</Text>
       </View>
     );
   }
@@ -96,12 +141,13 @@ export default function EditProfileScreen() {
       <View style={styles.content}>
         <Ionicons name="person-circle-outline" size={width * 0.3} color={theme.colors.primary} style={styles.profileIcon} />
 
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Informações do Perfil</Text>
         <Text style={[styles.label, { color: theme.colors.text }]}>Nome:</Text>
         <TextInput
           style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
           onChangeText={setName}
           value={name}
-          placeholder="Seu nome"
+          placeholder="O seu nome"
           placeholderTextColor={theme.colors.secondary}
           autoCapitalize="words"
         />
@@ -111,7 +157,7 @@ export default function EditProfileScreen() {
           style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
           onChangeText={setEmail}
           value={email}
-          placeholder="Seu e-mail"
+          placeholder="O seu e-mail"
           placeholderTextColor={theme.colors.secondary}
           keyboardType="email-address"
           autoCapitalize="none"
@@ -125,7 +171,38 @@ export default function EditProfileScreen() {
           {isUpdating ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Salvar Alterações</Text>
+            <Text style={styles.buttonText}>Guardar Informações</Text>
+          )}
+        </TouchableOpacity>
+
+        <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: height * 0.04 }]}>Alterar Palavra-Passe</Text>
+        <TextInput
+          style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
+          onChangeText={setNewPassword}
+          value={newPassword}
+          secureTextEntry={true}
+          placeholder="Nova Palavra-Passe"
+          placeholderTextColor={theme.colors.secondary}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
+          onChangeText={setConfirmNewPassword}
+          value={confirmNewPassword}
+          secureTextEntry={true}
+          placeholder="Confirmar Nova Palavra-Passe"
+          placeholderTextColor={theme.colors.secondary}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          style={[styles.button1, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
+          onPress={handleChangePassword}
+          disabled={isChangingPassword}
+        >
+          {isChangingPassword ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Alterar Palavra-Passe</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -138,6 +215,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: width * 0.05,
     paddingTop: height * 0.06,
+    
   },
   loadingContainer: {
     flex: 1,
@@ -162,12 +240,18 @@ const styles = StyleSheet.create({
   profileIcon: {
     marginBottom: height * 0.025,
   },
+  sectionTitle: {
+    fontSize: width * 0.055,
+    fontWeight: 'bold',
+    alignSelf: 'flex-start',
+    marginBottom: height * 0.02,
+    marginTop: height * 0.02,
+  },
   label: {
     fontSize: width * 0.04,
     fontWeight: 'bold',
     alignSelf: 'flex-start',
     marginBottom: height * 0.01,
-    marginTop: height * 0.02,
   },
   input: {
     height: height * 0.06,
@@ -180,8 +264,16 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: height * 0.02,
     alignItems: 'center',
-    marginTop: height * 0.03,
+    marginTop: height * 0.02,
     width: '100%',
+
+  },
+  button1: {
+    paddingVertical: height * 0.02,
+    alignItems: 'center',
+    marginTop: height * 0.02,
+    width: '100%',
+    marginBottom: 55,
   },
   buttonText: {
     color: '#fff',

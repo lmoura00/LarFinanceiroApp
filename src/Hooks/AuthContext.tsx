@@ -5,11 +5,11 @@ import React, {
   useEffect,
   useContext,
   ReactNode,
-} from 'react';
-import { supabase } from '@/supabaseClient';
-import { Session, User } from '@supabase/supabase-js';
-import { Alert } from 'react-native';
-import { useRouter, Redirect } from 'expo-router';
+} from "react";
+import { supabase } from "@/supabaseClient";
+import { Session, User } from "@supabase/supabase-js";
+import { Alert } from "react-native";
+import { useRouter, Redirect } from "expo-router";
 
 interface UserProfile {
   id: string;
@@ -24,8 +24,15 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string
+  ) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -41,7 +48,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchSessionAndProfile = async () => {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user || null);
 
@@ -51,18 +60,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     };
 
-    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user || null);
-        if (session) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-        setLoading(false);
+    const {
+      data: { subscription: authListener },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user || null);
+      if (session) {
+        await fetchUserProfile(session.user.id);
+      } else {
+        setProfile(null);
       }
-    );
+      setLoading(false);
+    });
 
     fetchSessionAndProfile();
 
@@ -76,35 +85,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('name, email, role, created_at')
-        .eq('id', userId)
+        .from("profiles")
+        .select("name, email, role, created_at")
+        .eq("id", userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== "PGRST116") {
         throw new Error(error.message);
-      } else if (error && error.code === 'PGRST116') {
+      } else if (error && error.code === "PGRST116") {
         setProfile(null);
         return;
       }
       setProfile(data as UserProfile);
     } catch (error: any) {
-      console.error('Erro ao buscar perfil do usuário:', error.message);
+      console.error("Erro ao buscar perfil do usuário:", error.message);
       setProfile(null);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (error) {
       setLoading(false);
       return { success: false, error: error.message };
     }
     if (data.session && data.user) {
-        setSession(data.session);
-        setUser(data.user);
-        await fetchUserProfile(data.user.id);
+      setSession(data.session);
+      setUser(data.user);
+      await fetchUserProfile(data.user.id);
     }
     setLoading(false);
     return { success: true };
@@ -112,35 +124,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
-    const { data: { user, session }, error: authError } = await supabase.auth.signUp({ email, password });
+    const {
+      data: { user, session },
+      error: authError,
+    } = await supabase.auth.signUp({ email, password });
 
     if (authError || !user) {
       setLoading(false);
-      return { success: false, error: authError?.message || 'Erro ao registrar usuário.' };
+      return {
+        success: false,
+        error: authError?.message || "Erro ao registrar usuário.",
+      };
     }
 
     if (session && user) {
-        setSession(session);
-        setUser(user);
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({ id: user.id, role: 'admin', email: user.email, name: name });
+      setSession(session);
+      setUser(user);
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({ id: user.id, role: "admin", email: user.email, name: name });
 
-        if (profileError) {
-            setLoading(false);
-            return { success: false, error: profileError.message || 'Ocorreu um erro ao criar seu perfil.' };
-        }
-        await fetchUserProfile(user.id);
-
+      if (profileError) {
         setLoading(false);
-        return { success: true };
+        return {
+          success: false,
+          error: profileError.message || "Ocorreu um erro ao criar seu perfil.",
+        };
+      }
+      await fetchUserProfile(user.id);
+
+      setLoading(false);
+      return { success: true };
     } else {
-        Alert.alert(
-            'Aviso',
-            'Sua conta foi criada, faça o login para continuar.'
-        );
-        setLoading(false);
-        return { success: true };
+      Alert.alert(
+        "Aviso",
+        "Sua conta foi criada, faça o login para continuar."
+      );
+      setLoading(false);
+      return { success: true };
     }
   };
 
@@ -148,12 +169,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
     if (error) {
-      Alert.alert('Erro ao sair', error.message);
+      Alert.alert("Erro ao sair", error.message);
+      setLoading(false);
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      router.replace("/Auth/page");
     } else {
       setSession(null);
       setUser(null);
       setProfile(null);
-      router.replace('/Auth/page');
+      router.replace("/Auth/page");
     }
     setLoading(false);
   };
@@ -174,7 +200,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
 };
