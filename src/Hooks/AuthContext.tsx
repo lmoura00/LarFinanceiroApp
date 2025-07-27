@@ -1,3 +1,4 @@
+// src/Hooks/AuthContext.tsx
 import React, {
   createContext,
   useState,
@@ -50,7 +51,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     };
 
-    
     const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
@@ -67,7 +67,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchSessionAndProfile();
 
     return () => {
-      
       if (authListener) {
         authListener.unsubscribe();
       }
@@ -82,8 +81,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', userId)
         .single();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         throw new Error(error.message);
+      } else if (error && error.code === 'PGRST116') {
+        setProfile(null);
+        return;
       }
       setProfile(data as UserProfile);
     } catch (error: any) {
@@ -94,10 +96,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
       return { success: false, error: error.message };
+    }
+    if (data.session && data.user) {
+        setSession(data.session);
+        setUser(data.user);
+        await fetchUserProfile(data.user.id);
     }
     setLoading(false);
     return { success: true };
@@ -105,25 +112,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
-    const { data: { user }, error: authError } = await supabase.auth.signUp({ email, password });
+    const { data: { user, session }, error: authError } = await supabase.auth.signUp({ email, password });
 
     if (authError || !user) {
       setLoading(false);
       return { success: false, error: authError?.message || 'Erro ao registrar usuário.' };
     }
 
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({ id: user.id, role: 'admin', email: user.email, name: name });
+    if (session && user) {
+        setSession(session);
+        setUser(user);
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({ id: user.id, role: 'admin', email: user.email, name: name });
 
-    if (profileError) {
-      setLoading(false);
-      return { success: false, error: profileError.message || 'Ocorreu um erro ao criar seu perfil.' };
+        if (profileError) {
+            setLoading(false);
+            return { success: false, error: profileError.message || 'Ocorreu um erro ao criar seu perfil.' };
+        }
+        await fetchUserProfile(user.id);
+
+        setLoading(false);
+        return { success: true };
+    } else {
+        Alert.alert(
+            'Aviso',
+            'Sua conta foi criada, faça o login para continuar.'
+        );
+        setLoading(false);
+        return { success: true };
     }
-
-    Alert.alert('Verifique seu e-mail', 'Seu cadastro foi realizado. Por favor, confirme seu e-mail para continuar.');
-    setLoading(false);
-    return { success: true };
   };
 
   const signOut = async () => {
