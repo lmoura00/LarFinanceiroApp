@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, StatusBar, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
+import { supabase } from '@/supabaseClient';
 import { useTheme } from '@/Hooks/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/Hooks/AuthContext';
@@ -12,6 +13,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [isLoginView, setIsLoginView] = useState<boolean>(true);
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false); // Novo estado para recuperação de senha
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { signIn, signUp, loading, session } = useAuth();
@@ -20,7 +22,7 @@ export default function AuthScreen() {
     if (session) {
       router.replace('/(protected)/Dashboard/page');
     }
-  }, [session]); 
+  }, [session]);
 
   async function handleSignIn(): Promise<void> {
     const { success, error } = await signIn(email, password);
@@ -35,6 +37,27 @@ export default function AuthScreen() {
       Alert.alert('Erro no Cadastro', error || 'Ocorreu um erro desconhecido.');
     } else {
         setIsLoginView(true);
+    }
+  }
+
+  async function handlePasswordRecovery(): Promise<void> {
+    if (!email.trim()) {
+      Alert.alert('Erro', 'Por favor, insira seu e-mail para recuperar a senha.');
+      return;
+    }
+    Alert.alert(
+      'Recuperação de Senha',
+      'Um e-mail de recuperação de senha será enviado se o endereço estiver registado. Verifique a sua caixa de entrada.'
+    );
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    if (error) {
+      console.error('Erro ao enviar e-mail de recuperação:', error.message);
+      Alert.alert('Erro na Recuperação', error.message);
+    } else {
+      Alert.alert('Sucesso', 'Um e-mail de recuperação de senha foi enviado. Por favor, verifique a sua caixa de entrada.');
+      setShowPasswordRecovery(false); // Volta para a tela de login
+      setEmail('');
     }
   }
 
@@ -57,10 +80,14 @@ export default function AuthScreen() {
       
 
       <Text style={[styles.title, { color: theme.colors.text }]}>
-        {isLoginView ? 'Bem-vindo(a) de volta!' : 'Criar sua conta'}
+        {showPasswordRecovery
+          ? 'Recuperar Senha'
+          : isLoginView
+          ? 'Bem-vindo(a) de volta!'
+          : 'Criar sua conta'}
       </Text>
       <View style={styles.inputContainer}>
-        {!isLoginView && (
+        {!isLoginView && !showPasswordRecovery && ( // Oculta o campo de nome na recuperação
           <TextInput
             style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
             onChangeText={(text) => setName(text)}
@@ -79,23 +106,35 @@ export default function AuthScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
         />
-        <TextInput
-          style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
-          onChangeText={(text) => setPassword(text)}
-          value={password}
-          secureTextEntry={true}
-          placeholder="Senha"
-          placeholderTextColor={theme.colors.secondary}
-          autoCapitalize="none"
-        />
+        {!showPasswordRecovery && ( // Oculta o campo de senha na recuperação
+          <TextInput
+            style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
+            onChangeText={(text) => setPassword(text)}
+            value={password}
+            secureTextEntry={true}
+            placeholder="Senha"
+            placeholderTextColor={theme.colors.secondary}
+            autoCapitalize="none"
+          />
+        )}
       </View>
       <TouchableOpacity
         style={[styles.button, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
-        onPress={isLoginView ? handleSignIn : handleSignUp}
+        onPress={
+          showPasswordRecovery
+            ? handlePasswordRecovery
+            : isLoginView
+            ? handleSignIn
+            : handleSignUp
+        }
         disabled={loading}
       >
         <Text style={styles.buttonText}>
-          {isLoginView ? 'Entrar' : 'Cadastrar'}
+          {showPasswordRecovery
+            ? 'Enviar Link de Recuperação'
+            : isLoginView
+            ? 'Entrar'
+            : 'Cadastrar'}
         </Text>
       </TouchableOpacity>
 
@@ -103,13 +142,32 @@ export default function AuthScreen() {
         <ActivityIndicator size="large" color={theme.colors.text} style={styles.loading} />
       )}
 
-      <TouchableOpacity onPress={() => setIsLoginView(!isLoginView)}>
-        <Text style={[styles.switchText, { color: theme.colors.secondary }]}>
-          {isLoginView
-            ? 'Não tem uma conta? Cadastre-se'
-            : 'Já tem uma conta? Faça login'}
-        </Text>
-      </TouchableOpacity>
+      {/* Links para alternar entre login/cadastro e recuperação */}
+      {!showPasswordRecovery && (
+        <TouchableOpacity onPress={() => setIsLoginView(!isLoginView)}>
+          <Text style={[styles.switchText, { color: theme.colors.secondary }]}>
+            {isLoginView
+              ? 'Não tem uma conta? Cadastre-se'
+              : 'Já tem uma conta? Faça login'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {isLoginView && !showPasswordRecovery && ( // Apenas mostra "Esqueceu a senha?" na tela de login
+        <TouchableOpacity onPress={() => setShowPasswordRecovery(true)}>
+          <Text style={[styles.switchText, { color: theme.colors.secondary, marginTop: height * 0.01 }]}>
+            Esqueceu a senha?
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {showPasswordRecovery && ( // Opção para voltar ao login da tela de recuperação
+        <TouchableOpacity onPress={() => setShowPasswordRecovery(false)}>
+          <Text style={[styles.switchText, { color: theme.colors.secondary, marginTop: height * 0.01 }]}>
+            Voltar para o Login
+          </Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }
