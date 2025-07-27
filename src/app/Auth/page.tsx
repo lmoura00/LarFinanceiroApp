@@ -54,19 +54,12 @@ export default function AuthScreen() {
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     const storedToken = await SecureStore.getItemAsync(BIOMETRIC_KEY);
 
-    console.log("Biometria - Compatível:", compatible);
-    console.log("Biometria - Cadastrada no Dispositivo:", enrolled);
-    console.log("Biometria - Habilitada no App (token salvo):", !!storedToken);
-
     setIsBiometricSupported(Boolean(compatible));
     setHasBiometricEnrolled(enrolled);
     setIsBiometricEnabledForApp(!!storedToken);
   };
 
-  const handleSignInSuccess = async (
-    userEmail: string,
-    userPassword: string
-  ) => {
+  const handleSignInSuccess = async (refreshToken: string) => {
     if (
       isBiometricSupported &&
       hasBiometricEnrolled &&
@@ -79,7 +72,7 @@ export default function AuthScreen() {
           { text: "Não", style: "cancel" },
           {
             text: "Sim",
-            onPress: () => enableBiometricsForApp(userEmail, userPassword),
+            onPress: () => enableBiometricsForApp(refreshToken),
           },
         ],
         { cancelable: false }
@@ -87,10 +80,7 @@ export default function AuthScreen() {
     }
   };
 
-  const enableBiometricsForApp = async (
-    userEmail: string,
-    userPassword: string
-  ) => {
+  const enableBiometricsForApp = async (refreshToken: string) => {
     try {
       const biometricAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: "Autentique para habilitar login biométrico",
@@ -99,15 +89,8 @@ export default function AuthScreen() {
       });
 
       if (biometricAuth.success) {
-        const { data } = await supabase.auth.signInWithPassword({
-          email: userEmail,
-          password: userPassword,
-        });
-        if (data.session?.refresh_token) {
-          await SecureStore.setItemAsync(
-            BIOMETRIC_KEY,
-            data.session.refresh_token
-          );
+        if (refreshToken) {
+          await SecureStore.setItemAsync(BIOMETRIC_KEY, refreshToken);
           setIsBiometricEnabledForApp(true);
           Alert.alert("Sucesso", "Login biométrico habilitado!");
         } else {
@@ -155,12 +138,14 @@ export default function AuthScreen() {
             "Login",
             "Autenticação biométrica bem-sucedida. A entrar..."
           );
-          const { data, error } = await supabase.auth.setSession({
+          const { data, error } = await supabase.auth.refreshSession({
             refresh_token: refreshToken,
           });
+
           if (error) {
             throw error;
           }
+
           if (data.session) {
             Alert.alert("Sucesso", "Login com biometria realizado!");
           } else {
@@ -193,11 +178,13 @@ export default function AuthScreen() {
   };
 
   async function handleSignIn(): Promise<void> {
-    const { success, error } = await signIn(email, password);
+    const { success, error, session } = await signIn(email, password);
     if (!success) {
       Alert.alert("Erro no Login", error || "Ocorreu um erro desconhecido.");
     } else {
-      handleSignInSuccess(email, password);
+      if (session?.refresh_token) {
+        handleSignInSuccess(session.refresh_token);
+      }
     }
   }
 
@@ -378,7 +365,7 @@ export default function AuthScreen() {
             style={[
               styles.biometricButton,
               {
-                backgroundColor: theme.colors.accent,
+                backgroundColor: theme.colors.primary,
                 borderRadius: theme.borderRadius.m,
               },
             ]}

@@ -1,4 +1,3 @@
-// src/Hooks/AuthContext.tsx
 import React, {
   createContext,
   useState,
@@ -9,7 +8,7 @@ import React, {
 import { supabase } from "@/supabaseClient";
 import { Session, User } from "@supabase/supabase-js";
 import { Alert } from "react-native";
-import { useRouter, Redirect } from "expo-router";
+import { useRouter } from "expo-router";
 
 interface UserProfile {
   id: string;
@@ -27,7 +26,7 @@ interface AuthContextType {
   signIn: (
     email: string,
     password: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; session?: Session | null }>;
   signUp: (
     email: string,
     password: string,
@@ -119,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await fetchUserProfile(data.user.id);
     }
     setLoading(false);
-    return { success: true };
+    return { success: true, session: data.session };
   };
 
   const signUp = async (email: string, password: string, name: string) => {
@@ -170,17 +169,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       Alert.alert("Erro ao sair", error.message);
-      setLoading(false);
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      router.replace("/Auth/page");
-    } else {
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      router.replace("/Auth/page");
     }
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    router.replace("/Auth/page");
     setLoading(false);
   };
 
