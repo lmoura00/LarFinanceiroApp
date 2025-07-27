@@ -141,7 +141,7 @@ export default function AddExpenseScreen() {
 
   const handleAddExpense = async () => {
     if (!user) {
-      Alert.alert('Erro', 'Você precisa estar logado para adicionar um gasto.');
+      Alert.alert('Erro', 'Você precisa estar logado para adicionar uma transação.');
       return;
     }
     if (!description.trim() || !amount.trim()) {
@@ -182,7 +182,7 @@ export default function AddExpenseScreen() {
         throw error;
       }
 
-      Alert.alert('Sucesso', 'Gasto adicionado com sucesso!');
+      Alert.alert('Sucesso', 'Transação adicionado com sucesso!');
      
       setDescription('');
       setAmount('');
@@ -194,8 +194,8 @@ export default function AddExpenseScreen() {
       router.back();
 
     } catch (error: any) {
-      console.error('Erro ao adicionar gasto:', error.message);
-      Alert.alert('Erro', 'Não foi possível adicionar o gasto: ' + error.message);
+      console.error('Erro ao adicionar a transação:', error.message);
+      Alert.alert('Erro', 'Não foi possível adicionar a transação: ' + error.message);
     } finally {
       setIsAdding(false);
     }
@@ -218,14 +218,14 @@ export default function AddExpenseScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerText, { color: theme.colors.text }]}>Adicionar Gasto</Text>
+        <Text style={[styles.headerText, { color: theme.colors.text }]}>Adicionar Transação</Text>
         <TouchableOpacity onPress={toggleTheme}>
           <Ionicons name={theme.dark ? "sunny" : "moon"} size={theme.fontSizes.large} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Descrição do Gasto:</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Descrição da Transação:</Text>
         <TextInput
           style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
           onChangeText={setDescription}
@@ -255,7 +255,7 @@ export default function AddExpenseScreen() {
           autoCapitalize="sentences"
         />
 
-        <Text style={[styles.label, { color: theme.colors.text }]}>Data do Gasto:</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Data da Transação:</Text>
         <TouchableOpacity onPress={showDatepicker} style={[styles.dateInput, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m }]}>
           <Text style={[styles.dateInputText, { color: theme.colors.text }]}>
             {expenseDate.toLocaleDateString('pt-BR')}
@@ -338,14 +338,14 @@ export default function AddExpenseScreen() {
 
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
+          style={[styles.button1, { backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.m }]}
           onPress={handleAddExpense}
           disabled={isAdding}
         >
           {isAdding ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Adicionar Gasto</Text>
+            <Text style={styles.buttonText}>Adicionar Transação</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -412,6 +412,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: height * 0.03,
     width: '100%',
+  },
+  button1: {
+    paddingVertical: height * 0.02,
+    alignItems: 'center',
+    marginTop: height * 0.03,
+    width: '100%',
+    marginBottom:150
   },
   buttonText: {
     color: '#fff',

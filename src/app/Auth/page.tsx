@@ -11,6 +11,8 @@ import {
   StatusBar,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "@/supabaseClient";
@@ -22,7 +24,8 @@ import * as SecureStore from "expo-secure-store";
 
 const { width, height } = Dimensions.get("window");
 
-const BIOMETRIC_KEY = "supabase_refresh_token_biometric";
+const LAST_EMAIL_KEY = "last_logged_in_email";
+const getBiometricKey = (email: string) => `supabase_refresh_token_biometric_${email}`;
 
 export default function AuthScreen() {
   const [email, setEmail] = useState<string>("");
@@ -32,8 +35,8 @@ export default function AuthScreen() {
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [hasBiometricEnrolled, setHasBiometricEnrolled] = useState(false);
-  const [isBiometricEnabledForApp, setIsBiometricEnabledForApp] =
-    useState(false);
+  const [isBiometricEnabledForApp, setIsBiometricEnabledForApp] = useState(false);
+  const [lastEmail, setLastEmail] = useState<string | null>(null);
 
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -46,41 +49,49 @@ export default function AuthScreen() {
   }, [session]);
 
   useEffect(() => {
-    checkBiometricsAvailability();
+    initializeAuthScreen();
   }, []);
+  
+  const initializeAuthScreen = async () => {
+    const lastUserEmail = await SecureStore.getItemAsync(LAST_EMAIL_KEY);
+    setLastEmail(lastUserEmail);
 
-  const checkBiometricsAvailability = async () => {
-    const compatible = await LocalAuthentication.supportedAuthenticationTypesAsync();
+    const compatible = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
-    const storedToken = await SecureStore.getItemAsync(BIOMETRIC_KEY);
-
-    setIsBiometricSupported(Boolean(compatible));
+    
+    setIsBiometricSupported(compatible);
     setHasBiometricEnrolled(enrolled);
-    setIsBiometricEnabledForApp(!!storedToken);
-  };
 
-  const handleSignInSuccess = async (refreshToken: string) => {
-    if (
-      isBiometricSupported &&
-      hasBiometricEnrolled &&
-      !isBiometricEnabledForApp
-    ) {
-      Alert.alert(
-        "Login Biométrico",
-        "Deseja habilitar o login rápido por biometria para futuras entradas?",
-        [
-          { text: "Não", style: "cancel" },
-          {
-            text: "Sim",
-            onPress: () => enableBiometricsForApp(refreshToken),
-          },
-        ],
-        { cancelable: false }
-      );
+    if (compatible && enrolled && lastUserEmail) {
+      const biometricToken = await SecureStore.getItemAsync(getBiometricKey(lastUserEmail));
+      setIsBiometricEnabledForApp(!!biometricToken);
     }
   };
 
-  const enableBiometricsForApp = async (refreshToken: string) => {
+  const handleSignInSuccess = async (refreshToken: string, userEmail: string) => {
+    if (
+      isBiometricSupported &&
+      hasBiometricEnrolled
+    ) {
+      const currentToken = await SecureStore.getItemAsync(getBiometricKey(userEmail));
+      if (!currentToken) {
+        Alert.alert(
+          "Login Biométrico",
+          "Deseja habilitar o login rápido por biometria para futuras entradas?",
+          [
+            { text: "Não", style: "cancel" },
+            {
+              text: "Sim",
+              onPress: () => enableBiometricsForApp(refreshToken, userEmail),
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  };
+
+  const enableBiometricsForApp = async (refreshToken: string, userEmail: string) => {
     try {
       const biometricAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: "Autentique para habilitar login biométrico",
@@ -89,16 +100,9 @@ export default function AuthScreen() {
       });
 
       if (biometricAuth.success) {
-        if (refreshToken) {
-          await SecureStore.setItemAsync(BIOMETRIC_KEY, refreshToken);
-          setIsBiometricEnabledForApp(true);
-          Alert.alert("Sucesso", "Login biométrico habilitado!");
-        } else {
-          Alert.alert(
-            "Erro",
-            "Não foi possível obter o token de sessão para login biométrico."
-          );
-        }
+        await SecureStore.setItemAsync(getBiometricKey(userEmail), refreshToken);
+        setIsBiometricEnabledForApp(true);
+        Alert.alert("Sucesso", "Login biométrico habilitado!");
       } else {
         Alert.alert(
           "Falha",
@@ -112,18 +116,11 @@ export default function AuthScreen() {
   };
 
   const handleBiometricLogin = async () => {
-    if (
-      !isBiometricSupported ||
-      !hasBiometricEnrolled ||
-      !isBiometricEnabledForApp
-    ) {
-      Alert.alert(
-        "Erro",
-        "Login biométrico não configurado ou não disponível."
-      );
+    if (!lastEmail) {
+      Alert.alert("Erro", "Nenhum usuário recente encontrado para login biométrico.");
       return;
     }
-
+    
     try {
       const biometricAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: "Autentique para fazer login",
@@ -132,7 +129,7 @@ export default function AuthScreen() {
       });
 
       if (biometricAuth.success) {
-        const refreshToken = await SecureStore.getItemAsync(BIOMETRIC_KEY);
+        const refreshToken = await SecureStore.getItemAsync(getBiometricKey(lastEmail));
         if (refreshToken) {
           Alert.alert(
             "Login",
@@ -142,18 +139,14 @@ export default function AuthScreen() {
             refresh_token: refreshToken,
           });
 
-          if (error) {
-            throw error;
-          }
+          if (error) throw error;
 
-          if (data.session) {
-            Alert.alert("Sucesso", "Login com biometria realizado!");
-          } else {
-            Alert.alert(
+          if (!data.session) {
+             Alert.alert(
               "Erro",
               "Token de sessão inválido. Por favor, faça login com e-mail e senha."
             );
-            await SecureStore.deleteItemAsync(BIOMETRIC_KEY);
+            await SecureStore.deleteItemAsync(getBiometricKey(lastEmail));
             setIsBiometricEnabledForApp(false);
           }
         } else {
@@ -171,19 +164,21 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       console.error("Erro no login biométrico:", error.message);
-      Alert.alert("Erro", "Ocorreu um erro ao tentar o login biométrico.");
-      await SecureStore.deleteItemAsync(BIOMETRIC_KEY);
+      Alert.alert("Erro", "Ocorreu um erro ao tentar o login biométrico: " + error.message);
+      await SecureStore.deleteItemAsync(getBiometricKey(lastEmail));
       setIsBiometricEnabledForApp(false);
     }
   };
 
   async function handleSignIn(): Promise<void> {
     const { success, error, session } = await signIn(email, password);
-    if (!success) {
+    if (!success || !session) {
       Alert.alert("Erro no Login", error || "Ocorreu um erro desconhecido.");
     } else {
-      if (session?.refresh_token) {
-        handleSignInSuccess(session.refresh_token);
+      await SecureStore.setItemAsync(LAST_EMAIL_KEY, email);
+      setLastEmail(email);
+      if (session.refresh_token) {
+        handleSignInSuccess(session.refresh_token, email);
       }
     }
   }
@@ -193,6 +188,7 @@ export default function AuthScreen() {
     if (!success) {
       Alert.alert("Erro no Cadastro", error || "Ocorreu um erro desconhecido.");
     } else {
+      Alert.alert("Sucesso", "Conta criada com sucesso! Faça o login para continuar.");
       setIsLoginView(true);
     }
   }
@@ -205,22 +201,20 @@ export default function AuthScreen() {
       );
       return;
     }
-    Alert.alert(
-      "Recuperação de Senha",
-      "Um e-mail de recuperação de senha será enviado se o endereço estiver registado. Verifique a sua caixa de entrada."
-    );
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'exp://192.168.100.4:8081'
+    });
 
     if (error) {
       console.error("Erro ao enviar e-mail de recuperação:", error.message);
       Alert.alert("Erro na Recuperação", error.message);
     } else {
       Alert.alert(
-        "Sucesso",
-        "Um e-mail de recuperação de senha foi enviado. Por favor, verifique a sua caixa de entrada."
+        "Verifique seu E-mail",
+        "Um e-mail de recuperação de senha foi enviado. Por favor, verifique sua caixa de entrada e spam."
       );
       setShowPasswordRecovery(false);
-      setEmail("");
     }
   }
 
@@ -229,45 +223,63 @@ export default function AuthScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.scrollContainer}
-      contentContainerStyle={[
-        styles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
 
-      <View style={styles.themeToggleContainer}>
-        <TouchableOpacity onPress={toggleTheme}>
-          <Ionicons
-            name={theme.dark ? "sunny" : "moon"}
-            size={theme.fontSizes.large}
-            color={theme.colors.text}
+        <View style={styles.themeToggleContainer}>
+          <TouchableOpacity onPress={toggleTheme}>
+            <Ionicons
+              name={theme.dark ? "sunny" : "moon"}
+              size={theme.fontSizes.large}
+              color={theme.colors.text}
+            />
+          </TouchableOpacity>
+        </View>
+        {theme.dark ? (
+          <Image
+            source={require("../../../assets/images/splash-icon-dark.png")}
+            style={styles.logo}
           />
-        </TouchableOpacity>
-      </View>
-      {theme.dark ? (
-        <Image
-          source={require("../../../assets/images/splash-icon-dark.png")}
-          style={styles.logo}
-        />
-      ) : (
-        <Image
-          source={require("../../../assets/images/splash-icon-light.png")}
-          style={styles.logo}
-        />
-      )}
+        ) : (
+          <Image
+            source={require("../../../assets/images/splash-icon-light.png")}
+            style={styles.logo}
+          />
+        )}
 
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        {showPasswordRecovery
-          ? "Recuperar Senha"
-          : isLoginView
-          ? "Bem-vindo(a) de volta!"
-          : "Criar sua conta"}
-      </Text>
-      <View style={styles.inputContainer}>
-        {!isLoginView && !showPasswordRecovery && (
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          {showPasswordRecovery
+            ? "Recuperar Senha"
+            : isLoginView
+            ? "Bem-vindo(a) de volta!"
+            : "Criar sua conta"}
+        </Text>
+        <View style={styles.inputContainer}>
+          {!isLoginView && !showPasswordRecovery && (
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.card,
+                  color: theme.colors.text,
+                  borderRadius: theme.borderRadius.m,
+                },
+              ]}
+              onChangeText={(text) => setName(text)}
+              value={name}
+              placeholder="Nome Completo"
+              placeholderTextColor={theme.colors.secondary}
+              autoCapitalize="words"
+            />
+          )}
           <TextInput
             style={[
               styles.input,
@@ -278,156 +290,137 @@ export default function AuthScreen() {
                 borderRadius: theme.borderRadius.m,
               },
             ]}
-            onChangeText={(text) => setName(text)}
-            value={name}
-            placeholder="Nome Completo"
+            onChangeText={(text) => setEmail(text)}
+            value={email}
+            placeholder="E-mail"
             placeholderTextColor={theme.colors.secondary}
-            autoCapitalize="words"
+            autoCapitalize="none"
+            keyboardType="email-address"
           />
-        )}
-        <TextInput
+          {!showPasswordRecovery && (
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.card,
+                  color: theme.colors.text,
+                  borderRadius: theme.borderRadius.m,
+                },
+              ]}
+              onChangeText={(text) => setPassword(text)}
+              value={password}
+              secureTextEntry={true}
+              placeholder="Senha"
+              placeholderTextColor={theme.colors.secondary}
+              autoCapitalize="none"
+            />
+          )}
+        </View>
+        <TouchableOpacity
           style={[
-            styles.input,
+            styles.button,
             {
-              borderColor: theme.colors.border,
-              backgroundColor: theme.colors.card,
-              color: theme.colors.text,
+              backgroundColor: theme.colors.primary,
               borderRadius: theme.borderRadius.m,
             },
           ]}
-          onChangeText={(text) => setEmail(text)}
-          value={email}
-          placeholder="E-mail"
-          placeholderTextColor={theme.colors.secondary}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        {!showPasswordRecovery && (
-          <TextInput
-            style={[
-              styles.input,
-              {
-                borderColor: theme.colors.border,
-                backgroundColor: theme.colors.card,
-                color: theme.colors.text,
-                borderRadius: theme.borderRadius.m,
-              },
-            ]}
-            onChangeText={(text) => setPassword(text)}
-            value={password}
-            secureTextEntry={true}
-            placeholder="Senha"
-            placeholderTextColor={theme.colors.secondary}
-            autoCapitalize="none"
+          onPress={
+            showPasswordRecovery
+              ? handlePasswordRecovery
+              : isLoginView
+              ? handleSignIn
+              : handleSignUp
+          }
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {showPasswordRecovery
+              ? "Enviar Link de Recuperação"
+              : isLoginView
+              ? "Entrar"
+              : "Cadastrar"}
+          </Text>
+        </TouchableOpacity>
+
+        {loading && (
+          <ActivityIndicator
+            size="large"
+            color={theme.colors.text}
+            style={styles.loading}
           />
         )}
-      </View>
-      <TouchableOpacity
-        style={[
-          styles.button,
-          {
-            backgroundColor: theme.colors.primary,
-            borderRadius: theme.borderRadius.m,
-          },
-        ]}
-        onPress={
-          showPasswordRecovery
-            ? handlePasswordRecovery
-            : isLoginView
-            ? handleSignIn
-            : handleSignUp
-        }
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {showPasswordRecovery
-            ? "Enviar Link de Recuperação"
-            : isLoginView
-            ? "Entrar"
-            : "Cadastrar"}
-        </Text>
-      </TouchableOpacity>
 
-      {loading && (
-        <ActivityIndicator
-          size="large"
-          color={theme.colors.text}
-          style={styles.loading}
-        />
-      )}
+        {isLoginView &&
+          !showPasswordRecovery &&
+          isBiometricSupported &&
+          hasBiometricEnrolled &&
+          isBiometricEnabledForApp && (
+            <TouchableOpacity
+              style={[
+                styles.biometricButton,
+                {
+                  backgroundColor: theme.colors.primary,
+                  borderRadius: theme.borderRadius.m,
+                },
+              ]}
+              onPress={handleBiometricLogin}
+              disabled={loading}
+            >
+              <Ionicons
+                name="finger-print-outline"
+                size={theme.fontSizes.large}
+                color="#fff"
+              />
+              <Text style={[styles.buttonText, { marginLeft: width * 0.02 }]}>
+                Login com Biometria
+              </Text>
+            </TouchableOpacity>
+          )}
 
-      {isLoginView &&
-        !showPasswordRecovery &&
-        isBiometricSupported &&
-        hasBiometricEnrolled &&
-        isBiometricEnabledForApp && (
-          <TouchableOpacity
-            style={[
-              styles.biometricButton,
-              {
-                backgroundColor: theme.colors.primary,
-                borderRadius: theme.borderRadius.m,
-              },
-            ]}
-            onPress={handleBiometricLogin}
-            disabled={loading}
-          >
-            <Ionicons
-              name="finger-print-outline"
-              size={theme.fontSizes.large}
-              color="#fff"
-            />
-            <Text style={[styles.buttonText, { marginLeft: width * 0.02 }]}>
-              Login com Biometria
+        {!showPasswordRecovery && (
+          <TouchableOpacity onPress={() => setIsLoginView(!isLoginView)}>
+            <Text style={[styles.switchText, { color: theme.colors.secondary }]}>
+              {isLoginView
+                ? "Não tem uma conta? Cadastre-se"
+                : "Já tem uma conta? Faça login"}
             </Text>
           </TouchableOpacity>
         )}
 
-      {!showPasswordRecovery && (
-        <TouchableOpacity onPress={() => setIsLoginView(!isLoginView)}>
-          <Text style={[styles.switchText, { color: theme.colors.secondary }]}>
-            {isLoginView
-              ? "Não tem uma conta? Cadastre-se"
-              : "Já tem uma conta? Faça login"}
-          </Text>
-        </TouchableOpacity>
-      )}
+        {isLoginView && !showPasswordRecovery && (
+          <TouchableOpacity onPress={() => setShowPasswordRecovery(true)}>
+            <Text
+              style={[
+                styles.switchText,
+                { color: theme.colors.secondary, marginTop: height * 0.01 },
+              ]}
+            >
+              Esqueceu a senha?
+            </Text>
+          </TouchableOpacity>
+        )}
 
-      {isLoginView && !showPasswordRecovery && (
-        <TouchableOpacity onPress={() => setShowPasswordRecovery(true)}>
-          <Text
-            style={[
-              styles.switchText,
-              { color: theme.colors.secondary, marginTop: height * 0.01 },
-            ]}
-          >
-            Esqueceu a senha?
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {showPasswordRecovery && (
-        <TouchableOpacity onPress={() => setShowPasswordRecovery(false)}>
-          <Text
-            style={[
-              styles.switchText,
-              { color: theme.colors.secondary, marginTop: height * 0.01 },
-            ]}
-          >
-            Voltar para o Login
-          </Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
+        {showPasswordRecovery && (
+          <TouchableOpacity onPress={() => setShowPasswordRecovery(false)}>
+            <Text
+              style={[
+                styles.switchText,
+                { color: theme.colors.secondary, marginTop: height * 0.01 },
+              ]}
+            >
+              Voltar para o Login
+            </Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-  },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     padding: width * 0.06,
   },

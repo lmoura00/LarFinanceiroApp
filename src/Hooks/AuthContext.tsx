@@ -9,6 +9,9 @@ import { supabase } from "@/supabaseClient";
 import { Session, User } from "@supabase/supabase-js";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+
+const LAST_EMAIL_KEY = "last_logged_in_email";
 
 interface UserProfile {
   id: string;
@@ -170,6 +173,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       Alert.alert("Erro ao sair", error.message);
     }
+    await SecureStore.deleteItemAsync(LAST_EMAIL_KEY);
     setSession(null);
     setUser(null);
     setProfile(null);
