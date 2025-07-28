@@ -420,6 +420,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          onPress={() => router.push("/(protected)/Budget/page")}
         >
           <Ionicons
             name="bar-chart-outline"

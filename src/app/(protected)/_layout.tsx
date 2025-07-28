@@ -45,6 +45,13 @@ export default function ProtectedLayout() {
         }}
       />
       <Tabs.Screen
+        name="Budget/page"
+        options={{
+          title: "Orçamento",
+          href: null
+        }}
+      />
+      <Tabs.Screen
         name="Goals/page"
         options={{
           title: "Metas",

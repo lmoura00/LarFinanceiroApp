@@ -9,10 +9,24 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as FileSystem from 'expo-file-system';
+import { Picker } from '@react-native-picker/picker';
 
 const { width, height } = Dimensions.get('window');
 
 const TRANSACTION_TYPES = ['expense', 'income'];
+
+const CATEGORIES = [
+  'Alimentação',
+  'Transporte',
+  'Lazer',
+  'Moradia',
+  'Saúde',
+  'Educação',
+  'Compras',
+  'Salário',
+  'Outra',
+];
+
 
 export default function AddExpenseScreen() {
   const { theme, toggleTheme } = useTheme();
@@ -21,7 +35,8 @@ export default function AddExpenseScreen() {
 
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [customCategory, setCustomCategory] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -152,6 +167,13 @@ export default function AddExpenseScreen() {
       return;
     }
 
+    const finalCategory = category === 'Outra' ? customCategory.trim() : category;
+    if (!finalCategory) {
+        Alert.alert('Erro', 'A categoria é obrigatória.');
+        return;
+    }
+
+
     setIsAdding(true);
     let imageUrl: string | null = null;
 
@@ -169,7 +191,7 @@ export default function AddExpenseScreen() {
           user_id: user.id,
           description: description.trim(),
           amount: parsedAmount,
-          category: category.trim() || null,
+          category: finalCategory,
           expense_date: expenseDate.toISOString().split('T')[0],
           type: transactionType,
           location_coords: locationCoords ? JSON.parse(locationCoords) : null,
@@ -184,7 +206,8 @@ export default function AddExpenseScreen() {
 
       setDescription('');
       setAmount('');
-      setCategory('');
+      setCategory(CATEGORIES[0]);
+      setCustomCategory('');
       setExpenseDate(new Date());
       setSelectedImage(null);
       setTransactionType('expense');
@@ -242,15 +265,30 @@ export default function AddExpenseScreen() {
             placeholderTextColor={theme.colors.secondary}
             keyboardType="numeric"
             />
+            
+            <View style={[styles.pickerContainer, {borderColor: theme.colors.border, backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.m}]}>
+              <Picker
+                selectedValue={category}
+                onValueChange={(itemValue) => setCategory(itemValue)}
+                style={{ color: theme.colors.text }}
+                dropdownIconColor={theme.colors.text}
+              >
+                {CATEGORIES.map((cat) => (
+                  <Picker.Item key={cat} label={cat} value={cat} />
+                ))}
+              </Picker>
+            </View>
 
-            <TextInput
-            style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
-            onChangeText={setCategory}
-            value={category}
-            placeholder="Ex: Alimentação, Transporte"
-            placeholderTextColor={theme.colors.secondary}
-            autoCapitalize="sentences"
-            />
+            {category === 'Outra' && (
+              <TextInput
+                style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.card, color: theme.colors.text, borderRadius: theme.borderRadius.m }]}
+                onChangeText={setCustomCategory}
+                value={customCategory}
+                placeholder="Qual categoria?"
+                placeholderTextColor={theme.colors.secondary}
+                autoCapitalize="sentences"
+              />
+            )}
         </View>
 
         <View style={styles.section}>
@@ -478,4 +516,11 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
         marginBottom: height * 0.02,
     },
+    pickerContainer: {
+        width: '100%',
+        borderRadius: 10,
+        marginBottom: 20,
+        justifyContent: 'center',
+        borderWidth: 1.5,
+      },
 });

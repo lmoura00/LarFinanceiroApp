@@ -47,6 +47,7 @@ interface Expense {
   expense_date: string;
   location_coords: LocationCoords | null;
   created_at: string;
+  type: "income" | "expense";
 }
 
 interface ChildDetail extends Child {
@@ -317,6 +318,128 @@ export default function DependentsScreen() {
     }
   };
 
+  const generateAndShareExpensesPdf = async (child: ChildDetail | null) => {
+    if (!child) {
+      Alert.alert("Erro", "Nenhum dependente selecionado.");
+      return;
+    }
+
+    const expensesHtml = child.expenses
+      .map(
+        (expense) => `
+      <tr>
+        <td>${expense.description}</td>
+        <td>${expense.category || "N/A"}</td>
+        <td>${new Date(expense.expense_date).toLocaleDateString("pt-BR")}</td>
+        <td style="text-align: right; color: ${
+          expense.type === "income" ? "green" : "red"
+        };">${
+          expense.type === "income" ? "+ " : "- "
+        }${expense.amount.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })}</td>
+      </tr>
+    `
+      )
+      .join("");
+
+    const totalExpenses = child.expenses.reduce((acc, expense) => {
+      if (expense.type === "expense") {
+        return acc + expense.amount;
+      }
+      return acc;
+    }, 0);
+    const totalIncomes = child.expenses.reduce((acc, expense) => {
+      if (expense.type === "income") {
+        return acc + expense.amount;
+      }
+      return acc;
+    }, 0);
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Gastos - ${child.name}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+          .container { max-width: 800px; margin: 0 auto; border: 1px solid #eee; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+          .header { text-align: center; margin-bottom: 20px; }
+          .logo { font-size: 30px; font-weight: bold; color: #007AFF; margin-bottom: 10px; }
+          .app-name { font-size: 20px; color: #555; }
+          h2 { text-align: center; color: #007AFF; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .summary { margin-top: 20px; padding-top: 10px; border-top: 2px solid #333; text-align: right; }
+          .summary p { font-size: 16px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">Lar Financeiro</div>
+            <div class="app-name">Relatório de Transações</div>
+          </div>
+          <h2>Transações de ${child.name}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Data</th>
+                <th style="text-align: right;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expensesHtml}
+            </tbody>
+          </table>
+          <div class="summary">
+            <p style="color: red;">Total de Despesas: ${totalExpenses.toLocaleString(
+              "pt-BR",
+              {
+                style: "currency",
+                currency: "BRL",
+              }
+            )}</p>
+            <p style="color: green;">Total de Receitas: ${totalIncomes.toLocaleString(
+              "pt-BR",
+              {
+                style: "currency",
+                currency: "BRL",
+              }
+            )}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `Relatório de Gastos - ${child.name}`,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert(
+          "Erro",
+          "A funcionalidade de partilha de PDF não está disponível neste dispositivo."
+        );
+      }
+    } catch (error: any) {
+      Alert.alert("Erro", "Não foi possível gerar ou partilhar o PDF.");
+    }
+  };
+
   const fetchChildDetails = async (child: Child) => {
     setFetchingChildDetails(true);
     try {
@@ -337,9 +460,11 @@ export default function DependentsScreen() {
 
       const categorySummary: { [key: string]: number } = {};
       expensesData?.forEach((expense) => {
-        const categoryName = expense.category || "Outros";
-        categorySummary[categoryName] =
-          (categorySummary[categoryName] || 0) + expense.amount;
+        if (expense.type === "expense") {
+          const categoryName = expense.category || "Outros";
+          categorySummary[categoryName] =
+            (categorySummary[categoryName] || 0) + expense.amount;
+        }
       });
 
       setSelectedChild({
@@ -660,234 +785,273 @@ export default function DependentsScreen() {
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
               Detalhes de {selectedChild?.name}
             </Text>
-            <TouchableOpacity
-              onPress={() =>
-                generateAndShareLoginPdf(
-                  selectedChild?.name,
-                  selectedChild?.email
-                )
-              }
-            >
-              <Ionicons
-                name="document-text-outline"
-                size={theme.fontSizes.large}
-                color={theme.colors.text}
-              />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row" }}>
+              <TouchableOpacity
+                onPress={() => generateAndShareExpensesPdf(selectedChild)}
+              >
+                <Ionicons
+                  name="save-outline"
+                  size={theme.fontSizes.large}
+                  color={theme.colors.text}
+                  style={{ marginRight: 15 }}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  generateAndShareLoginPdf(
+                    selectedChild?.name,
+                    selectedChild?.email
+                  )
+                }
+              >
+                <Ionicons
+                  name="share-outline"
+                  size={theme.fontSizes.large}
+                  color={theme.colors.text}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-          <ScrollView style={styles.modalContent}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+          >
             {selectedChild && (
               <>
-                <Text
+                <View
                   style={[
-                    styles.detailLabel,
-                    { color: theme.colors.secondary },
+                    styles.detailsCard,
+                    { backgroundColor: theme.colors.card },
                   ]}
                 >
-                  Nome:
-                </Text>
-                <Text style={[styles.detailText, { color: theme.colors.text }]}>
-                  {selectedChild.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.detailLabel,
-                    { color: theme.colors.secondary },
-                  ]}
-                >
-                  Email da Conta:
-                </Text>
-                <Text style={[styles.detailText, { color: theme.colors.text }]}>
-                  {selectedChild.email || "N/A"}
-                </Text>
-                <Text
-                  style={[
-                    styles.securityNote,
-                    { color: theme.colors.secondary },
-                  ]}
-                >
-                  * A senha padrão é "123456". O dependente deve acessar a conta
-                  e definir uma nova senha.
-                </Text>
-                <Text
-                  style={[
-                    styles.detailLabel,
-                    { color: theme.colors.secondary },
-                  ]}
-                >
-                  Mesada:
-                </Text>
-                <Text style={[styles.detailText, { color: theme.colors.text }]}>
-                  {selectedChild.allowance_amount !== null
-                    ? selectedChild.allowance_amount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })
-                    : "Não definida"}
-                  {selectedChild.allowance_frequency
-                    ? ` (${selectedChild.allowance_frequency})`
-                    : ""}
-                </Text>
-                <Text
-                  style={[styles.sectionTitle, { color: theme.colors.text }]}
-                >
-                  Últimos Gastos
-                </Text>
-                {selectedChild.expenses.length === 0 ? (
-                  <Text
-                    style={[styles.subtitle, { color: theme.colors.secondary }]}
-                  >
-                    Nenhum gasto registrado.
-                  </Text>
-                ) : (
-                  selectedChild.expenses.map((expense) => (
-                    <View
-                      key={expense.id}
-                      style={[
-                        styles.expenseItem,
-                        { borderColor: theme.colors.border },
-                      ]}
-                    >
-                      <View style={styles.expenseDetails}>
-                        <Text
-                          style={[
-                            styles.expenseDescription,
-                            { color: theme.colors.text },
-                          ]}
-                        >
-                          {expense.description}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.expenseAmount,
-                            { color: theme.colors.text },
-                          ]}
-                        >
-                          {expense.amount.toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </Text>
-                      </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color={theme.colors.primary}
+                      style={styles.detailIcon}
+                    />
+                    <View>
                       <Text
                         style={[
-                          styles.expenseCategory,
+                          styles.detailLabel,
                           { color: theme.colors.secondary },
                         ]}
                       >
-                        Categoria: {expense.category || "N/A"}
+                        Nome
                       </Text>
-                      {expense.location_coords && (
-                        <>
-                          <MapView
-                            ref={mapRef}
-                            style={styles.map}
-                            initialRegion={{
-                              latitude: expense.location_coords.latitude,
-                              longitude: expense.location_coords.longitude,
-                              latitudeDelta: 0.01,
-                              longitudeDelta: 0.01,
-                            }}
-                            onMapReady={() => {
-                              mapRef.current?.animateCamera(
-                                {
-                                  pitch: 60,
-                                  center: {
-                                    latitude: expense.location_coords.latitude,
-                                    longitude:
-                                      expense.location_coords.longitude,
-                                  },
-                                  zoom: 16,
-                                },
-                                { duration: 1500 }
-                              );
-                            }}
-                          >
-                            <Marker
-                              coordinate={{
-                                latitude: expense.location_coords.latitude,
-                                longitude: expense.location_coords.longitude,
-                              }}
-                              title={expense.description}
-                            />
-                          </MapView>
-                        </>
-                      )}
                       <Text
                         style={[
-                          styles.expenseDate,
-                          { color: theme.colors.secondary },
+                          styles.detailText,
+                          { color: theme.colors.text },
                         ]}
                       >
-                        Data:{" "}
-                        {new Date(expense.expense_date).toLocaleDateString(
-                          "pt-BR"
-                        )}
+                        {selectedChild.name}
                       </Text>
                     </View>
-                  ))
-                )}
-                <Text
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color={theme.colors.primary}
+                      style={styles.detailIcon}
+                    />
+                    <View>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.colors.secondary },
+                        ]}
+                      >
+                        Email da Conta
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailText,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {selectedChild.email || "N/A"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="cash-outline"
+                      size={20}
+                      color={theme.colors.primary}
+                      style={styles.detailIcon}
+                    />
+                    <View>
+                      <Text
+                        style={[
+                          styles.detailLabel,
+                          { color: theme.colors.secondary },
+                        ]}
+                      >
+                        Mesada
+                      </Text>
+                      <Text
+                        style={[
+                          styles.detailText,
+                          { color: theme.colors.text },
+                        ]}
+                      >
+                        {selectedChild.allowance_amount !== null
+                          ? selectedChild.allowance_amount.toLocaleString(
+                              "pt-BR",
+                              { style: "currency", currency: "BRL" }
+                            )
+                          : "Não definida"}
+                        {selectedChild.allowance_frequency
+                          ? ` (${selectedChild.allowance_frequency})`
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View
                   style={[
-                    styles.sectionTitle,
-                    { color: theme.colors.text, marginTop: height * 0.03 },
+                    styles.detailsCard,
+                    { backgroundColor: theme.colors.card, marginTop: 20 },
                   ]}
                 >
-                  Gastos por Categoria
-                </Text>
-                {selectedChild &&
-                Object.keys(selectedChild.categorySummary).length > 0 ? (
-                  <View>
-                    <BarChart
-                      data={{
-                        labels: Object.keys(selectedChild.categorySummary),
-                        datasets: [
-                          {
-                            data: Object.values(selectedChild.categorySummary),
-                          },
-                        ],
-                      }}
-                      width={width * 0.9}
-                      height={250}
-                      yAxisLabel="R$"
-                      chartConfig={{
-                        backgroundColor: theme.colors.card,
-                        backgroundGradientFrom: theme.colors.card,
-                        backgroundGradientTo: theme.colors.card,
-                        decimalPlaces: 2,
-                        color: (opacity = 1) =>
-                          theme.dark
-                            ? `rgba(255, 255, 255, ${opacity})`
-                            : `rgba(0, 0, 0, ${opacity})`,
-                        labelColor: (opacity = 1) =>
-                          theme.dark
-                            ? `rgba(255, 255, 255, ${opacity})`
-                            : `rgba(0, 0, 0, ${opacity})`,
-                        style: {
-                          borderRadius: 16,
-                        },
-                        propsForBackgroundLines: {
-                          stroke: theme.colors.border,
-                        },
-                        propsForLabels: {
-                          fontSize: 10,
-                        },
-                      }}
-                      verticalLabelRotation={30}
-                      fromZero={true}
-                      style={{
-                        marginVertical: 8,
-                        borderRadius: 16,
-                      }}
-                    />
-                  </View>
-                ) : (
                   <Text
-                    style={[styles.subtitle, { color: theme.colors.secondary }]}
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: theme.colors.text,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
                   >
-                    Nenhum dado de categoria disponível.
+                    Últimos Gastos
                   </Text>
-                )}
+                  {selectedChild.expenses.length === 0 ? (
+                    <Text
+                      style={[
+                        styles.emptyMessage,
+                        { color: theme.colors.secondary },
+                      ]}
+                    >
+                      Nenhum gasto registrado.
+                    </Text>
+                  ) : (
+                    selectedChild.expenses.map((expense, index) => (
+                      <View
+                        key={expense.id}
+                        style={[
+                          styles.expenseItem,
+                          index !== selectedChild.expenses.length - 1 && {
+                            borderBottomColor: theme.colors.border,
+                            borderBottomWidth: 1,
+                          },
+                        ]}
+                      >
+                        <View style={styles.expenseDetails}>
+                          <Text
+                            style={[
+                              styles.expenseDescription,
+                              { color: theme.colors.text },
+                            ]}
+                          >
+                            {expense.description}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.expenseAmount,
+                              {
+                                color:
+                                  expense.type === "income"
+                                    ? theme.colors.primary
+                                    : "red",
+                              },
+                            ]}
+                          >
+                            {expense.type === "income" ? "+ " : "- "}
+                            {expense.amount.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.expenseCategory,
+                            { color: theme.colors.secondary },
+                          ]}
+                        >
+                          Categoria: {expense.category || "N/A"}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                {selectedChild &&
+                  Object.keys(selectedChild.categorySummary).length > 0 && (
+                    <View
+                      style={[
+                        styles.detailsCard,
+                        {
+                          backgroundColor: theme.colors.card,
+                          marginTop: 20,
+                          paddingBottom: 20,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sectionTitle,
+                          {
+                            color: theme.colors.text,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                      >
+                        Gastos por Categoria
+                      </Text>
+                      <BarChart
+                        data={{
+                          labels: Object.keys(selectedChild.categorySummary),
+                          datasets: [
+                            {
+                              data: Object.values(
+                                selectedChild.categorySummary
+                              ),
+                            },
+                          ],
+                        }}
+                        width={width * 0.8}
+                        height={250}
+                        yAxisLabel="R$"
+                        chartConfig={{
+                          backgroundColor: theme.colors.card,
+                          backgroundGradientFrom: theme.colors.card,
+                          backgroundGradientTo: theme.colors.card,
+                          decimalPlaces: 2,
+                          color: (opacity = 1) =>
+                            theme.dark
+                              ? `rgba(255, 255, 255, ${opacity})`
+                              : `rgba(0, 0, 0, ${opacity})`,
+                          labelColor: (opacity = 1) =>
+                            theme.dark
+                              ? `rgba(255, 255, 255, ${opacity})`
+                              : `rgba(0, 0, 0, ${opacity})`,
+                          propsForBackgroundLines: {
+                            stroke: theme.colors.border,
+                          },
+                          propsForLabels: { fontSize: 10 },
+                        }}
+                        verticalLabelRotation={30}
+                        fromZero={true}
+                        style={{ marginVertical: 8, borderRadius: 16 }}
+                      />
+                    </View>
+                  )}
               </>
             )}
           </ScrollView>
@@ -900,8 +1064,7 @@ export default function DependentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: width * 0.05,
-    paddingTop: height * 0.06,
+    paddingHorizontal: width * 0.05,
   },
   loadingContainer: {
     flex: 1,
@@ -912,6 +1075,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: height * 0.06,
     marginBottom: height * 0.025,
   },
   headerText: {
@@ -933,6 +1097,11 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     textAlign: "center",
     marginBottom: height * 0.04,
+  },
+  emptyMessage: {
+    fontSize: width * 0.04,
+    textAlign: "center",
+    marginVertical: 20,
   },
   input: {
     height: height * 0.065,
@@ -1012,7 +1181,6 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    padding: width * 0.05,
     paddingTop: height * 0.06,
   },
   modalHeader: {
@@ -1020,41 +1188,53 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: height * 0.025,
+    paddingHorizontal: width * 0.05,
   },
   modalTitle: {
     fontSize: width * 0.05,
     fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
+    marginHorizontal: 10,
   },
   modalContent: {
-    flex: 1,
-    paddingHorizontal: width * 0.02,
+    paddingHorizontal: width * 0.05,
+    paddingBottom: height * 0.05,
+  },
+  detailsCard: {
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  detailIcon: {
+    marginRight: 15,
   },
   detailLabel: {
-    fontSize: width * 0.038,
-    fontWeight: "bold",
-    marginTop: height * 0.015,
+    fontSize: width * 0.035,
   },
   detailText: {
     fontSize: width * 0.045,
-    marginBottom: height * 0.01,
-  },
-  securityNote: {
-    fontSize: width * 0.03,
-    fontStyle: "italic",
-    marginBottom: height * 0.02,
+    fontWeight: "bold",
   },
   sectionTitle: {
     fontSize: width * 0.05,
     fontWeight: "bold",
-    marginTop: height * 0.02,
     marginBottom: height * 0.015,
     paddingBottom: 5,
     borderBottomWidth: 1,
   },
   expenseItem: {
     paddingVertical: height * 0.015,
-    borderBottomWidth: 1,
-    marginBottom: height * 0.01,
   },
   expenseDetails: {
     flexDirection: "row",
@@ -1073,16 +1253,5 @@ const styles = StyleSheet.create({
   },
   expenseCategory: {
     fontSize: width * 0.035,
-  },
-  expenseDate: {
-    fontSize: width * 0.035,
-    marginTop: 5,
-  },
-  map: {
-    width: "100%",
-    height: height * 0.2,
-    borderRadius: 8,
-    marginTop: height * 0.01,
-    marginBottom: height * 0.01,
   },
 });
