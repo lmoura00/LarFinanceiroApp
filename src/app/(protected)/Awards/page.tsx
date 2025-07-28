@@ -18,7 +18,6 @@ import { useTheme } from "@/Hooks/ThemeContext";
 import { useAuth } from "@/Hooks/AuthContext";
 import { useFocusEffect } from "expo-router";
 
-// --- Interfaces ---
 interface Medal {
   id: string;
   child_id: string;
@@ -29,17 +28,16 @@ interface Medal {
 }
 
 interface Child {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 }
 
 interface MedalsByChild {
-    childId: string;
-    childName: string;
-    medals: Medal[];
+  childId: string;
+  childName: string;
+  medals: Medal[];
 }
 
-// --- Dimensions ---
 const { width, height } = Dimensions.get("window");
 
 export default function AwardsScreen() {
@@ -47,7 +45,6 @@ export default function AwardsScreen() {
   const [myMedals, setMyMedals] = useState<Medal[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal States
   const [showPrizeModal, setShowPrizeModal] = useState(false);
   const [selectedMedal, setSelectedMedal] = useState<Medal | null>(null);
   const [prizeAmount, setPrizeAmount] = useState("");
@@ -60,49 +57,49 @@ export default function AwardsScreen() {
     setLoading(true);
 
     try {
-        if (profile.role === 'admin' || profile.role === 'responsible') {
-            const { data: childrenData, error: childrenError } = await supabase
-                .from('children')
-                .select('id, name')
-                .eq('parent_id', user.id);
-            if(childrenError) throw childrenError;
+      if (profile.role === "admin" || profile.role === "responsible") {
+        const { data: childrenData, error: childrenError } = await supabase
+          .from("children")
+          .select("id, name")
+          .eq("parent_id", user.id);
+        if (childrenError) throw childrenError;
 
-            if (!childrenData || childrenData.length === 0) {
-                setMedalsByChild([]);
-                setLoading(false);
-                return;
-            }
-
-            const childrenIds = childrenData.map(c => c.id);
-            const { data: medalsData, error: medalsError } = await supabase
-                .from('medals')
-                .select('*')
-                .in('child_id', childrenIds)
-                .order('achieved_at', { ascending: false });
-            
-            if (medalsError) throw medalsError;
-
-            const groupedMedals = childrenData.map(child => ({
-                childId: child.id,
-                childName: child.name,
-                medals: medalsData?.filter(medal => medal.child_id === child.id) || []
-            }));
-
-            setMedalsByChild(groupedMedals);
-
-        } else {
-            const { data, error } = await supabase
-                .from('medals')
-                .select('*')
-                .eq('child_id', user.id)
-                .order('achieved_at', { ascending: false });
-            if (error) throw error;
-            setMyMedals(data || []);
+        if (!childrenData || childrenData.length === 0) {
+          setMedalsByChild([]);
+          setLoading(false);
+          return;
         }
+
+        const childrenIds = childrenData.map((c) => c.id);
+        const { data: medalsData, error: medalsError } = await supabase
+          .from("medals")
+          .select("*")
+          .in("child_id", childrenIds)
+          .order("achieved_at", { ascending: false });
+
+        if (medalsError) throw medalsError;
+
+        const groupedMedals = childrenData.map((child) => ({
+          childId: child.id,
+          childName: child.name,
+          medals:
+            medalsData?.filter((medal) => medal.child_id === child.id) || [],
+        }));
+
+        setMedalsByChild(groupedMedals);
+      } else {
+        const { data, error } = await supabase
+          .from("medals")
+          .select("*")
+          .eq("child_id", user.id)
+          .order("achieved_at", { ascending: false });
+        if (error) throw error;
+        setMyMedals(data || []);
+      }
     } catch (error: any) {
-        Alert.alert("Erro ao buscar prêmios", error.message);
+      Alert.alert("Erro ao buscar prêmios", error.message);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   }, [user, profile]);
 
@@ -118,59 +115,69 @@ export default function AwardsScreen() {
 
   const handleGivePrize = async () => {
     if (!selectedMedal || !prizeAmount.trim() || !user) {
-        Alert.alert("Erro", "Por favor, insira um valor para o prêmio.");
-        return;
+      Alert.alert("Erro", "Por favor, insira um valor para o prêmio.");
+      return;
     }
     const amount = parseFloat(prizeAmount);
     if (isNaN(amount) || amount <= 0) {
-        Alert.alert("Erro", "O valor do prêmio deve ser um número positivo.");
-        return;
+      Alert.alert("Erro", "O valor do prêmio deve ser um número positivo.");
+      return;
     }
-    
-    const { error: expenseError } = await supabase.from('expenses').insert({
-        user_id: user.id, 
-        description: `Prêmio para meta: ${selectedMedal.name}`,
-        amount: amount,
-        type: 'expense',
-        category: 'Prêmio',
-        expense_date: new Date().toISOString(),
+
+    const { error: expenseError } = await supabase.from("expenses").insert({
+      user_id: user.id,
+      description: `Prêmio para meta: ${selectedMedal.name}`,
+      amount: amount,
+      type: "expense",
+      category: "Prêmio",
+      expense_date: new Date().toISOString(),
     });
 
     if (expenseError) {
-        Alert.alert("Erro", "Não foi possível debitar o valor do seu saldo.");
-        return;
+      Alert.alert("Erro", "Não foi possível debitar o valor do seu saldo.");
+      return;
     }
 
-    
-    const { error: incomeError } = await supabase.from('expenses').insert({
-        user_id: selectedMedal.child_id,
-        description: `Prêmio pela meta: ${selectedMedal.name}`,
-        amount: amount,
-        type: 'income',
-        category: 'Prêmio',
-        expense_date: new Date().toISOString(),
+    const { error: incomeError } = await supabase.from("expenses").insert({
+      user_id: selectedMedal.child_id,
+      description: `Prêmio pela meta: ${selectedMedal.name}`,
+      amount: amount,
+      type: "income",
+      category: "Prêmio",
+      expense_date: new Date().toISOString(),
     });
 
     if (incomeError) {
-        Alert.alert("Erro", "Não foi possível registrar o prêmio como uma transação para o dependente.");
-        return;
+      Alert.alert(
+        "Erro",
+        "Não foi possível registrar o prêmio como uma transação para o dependente."
+      );
+      return;
     }
 
-   
     const { error: medalError } = await supabase
-        .from('medals')
-        .update({ prize_amount: amount })
-        .eq('id', selectedMedal.id)
-        .select(); 
+      .from("medals")
+      .update({ prize_amount: amount })
+      .eq("id", selectedMedal.id)
+      .select();
 
     if (medalError) {
-        Alert.alert("Erro", "Não foi possível atualizar o status do prêmio na medalha.");
+      Alert.alert(
+        "Erro",
+        "Não foi possível atualizar o status do prêmio na medalha."
+      );
     } else {
-        Alert.alert("Sucesso!", `Prêmio de ${amount.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} concedido.`);
-        setShowPrizeModal(false);
-        setPrizeAmount("");
-        setSelectedMedal(null);
-        fetchData(); 
+      Alert.alert(
+        "Sucesso!",
+        `Prêmio de ${amount.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })} concedido.`
+      );
+      setShowPrizeModal(false);
+      setPrizeAmount("");
+      setSelectedMedal(null);
+      fetchData();
     }
   };
 
@@ -262,9 +269,17 @@ export default function AwardsScreen() {
                           </Text>
                         ) : (
                           <TouchableOpacity
-                            style={styles.prizeButton}
+                            style={[
+                              styles.prizeButton,
+                              { backgroundColor: theme.colors.success },
+                            ]}
                             onPress={() => openPrizeModal(medal)}
                           >
+                            <Ionicons
+                              name="gift-outline"
+                              size={18}
+                              color="#fff"
+                            />
                             <Text style={styles.prizeButtonText}>
                               Dar Prêmio
                             </Text>
@@ -326,7 +341,6 @@ export default function AwardsScreen() {
         ))
       )}
 
-      {/* Give Prize Modal */}
       <Modal visible={showPrizeModal} transparent={true} animationType="slide">
         <View style={styles.modalBackdrop}>
           <View
@@ -402,30 +416,33 @@ const styles = StyleSheet.create({
   medalCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
-    borderRadius: 10,
+    padding: 20,
+    borderRadius: 15,
     marginBottom: 15,
-    elevation: 3,
+    elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
+    borderLeftWidth: 5,
+    borderLeftColor: "#FFD700",
   },
-  medalIcon: { marginRight: 15 },
+  medalIcon: { marginRight: 20 },
   medalInfo: { flex: 1 },
-  medalTitle: { fontSize: width * 0.05, fontWeight: "bold" },
+  medalTitle: { fontSize: width * 0.045, fontWeight: "bold" },
   medalDescription: { fontSize: width * 0.04, marginVertical: 4 },
   medalDate: { fontSize: width * 0.03, fontStyle: "italic", marginTop: 5 },
   noDataText: { textAlign: "center", marginTop: 50, fontSize: width * 0.04 },
   prizeButton: {
-    backgroundColor: "#27ae60",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 20,
     alignSelf: "flex-start",
     marginTop: 10,
   },
-  prizeButtonText: { color: "#fff", fontWeight: "bold" },
+  prizeButtonText: { color: "#fff", fontWeight: "bold", marginLeft: 8 },
   prizeGivenText: {
     fontSize: width * 0.035,
     fontWeight: "bold",
