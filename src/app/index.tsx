@@ -7,7 +7,7 @@ import { useTheme } from '@/Hooks/ThemeContext';
 const StartPage = () => {
   const { session, loading } = useAuth();
   const { theme } = useTheme();
-
+  
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
@@ -16,7 +16,7 @@ const StartPage = () => {
     );
   }
 
-  if (!session) {
+  if (!session || !session.user) {
     return <Redirect href="/Auth/page" />;
   }
 
