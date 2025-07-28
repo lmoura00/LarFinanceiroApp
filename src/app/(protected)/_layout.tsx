@@ -7,7 +7,8 @@ import { useAuth } from "@/Hooks/AuthContext";
 export default function ProtectedLayout() {
   const { theme } = useTheme();
   const { session, loading, profile } = useAuth();
-
+  console.log("PROFILE: ",profile);
+  console.log("SESSION: ",session);
   if (loading) {
     return null;
   }

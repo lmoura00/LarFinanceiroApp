@@ -11,7 +11,7 @@ import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
-const LAST_EMAIL_KEY = "last_logged_in_email";
+export const LAST_EMAIL_KEY = "last_logged_in_email";
 
 interface UserProfile {
   id: string;
@@ -34,7 +34,7 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; session?: Session | null }>;
   signOut: () => Promise<void>;
   unreadNotifications: number;
   markNotificationsAsRead: () => void;
@@ -50,59 +50,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
   const router = useRouter();
 
-  const fetchUnreadNotificationsCount = async (userId: string) => {
-    try {
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("is_read", false);
+  const fetchUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("name, email, role, created_at")
+      .eq("id", userId)
+      .single();
 
-      if (error) {
-        throw error;
-      }
+    if (!error) {
+      setProfile(data as UserProfile);
+    } else {
+      setProfile(null);
+    }
+  };
+
+  const fetchUnreadNotificationsCount = async (userId: string) => {
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_read", false);
+
+    if (!error) {
       setUnreadNotifications(count ?? 0);
-    } catch (error: any) {
-      console.error("Error fetching unread notifications:", error.message);
     }
   };
 
   useEffect(() => {
-    const fetchSessionAndProfile = async () => {
-      setLoading(true);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user || null);
-
-      if (session) {
-        await fetchUserProfile(session.user.id);
-        await fetchUnreadNotificationsCount(session.user.id);
-      }
-      setLoading(false);
-    };
-
-    fetchSessionAndProfile();
-
     const {
       data: { subscription: authListener },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user || null);
-      if (session) {
-        await fetchUserProfile(session.user.id);
-        await fetchUnreadNotificationsCount(session.user.id);
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      setLoading(true);
+      setSession(newSession);
+      const currentUser = newSession?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        await fetchUserProfile(currentUser.id);
+        await fetchUnreadNotificationsCount(currentUser.id);
       } else {
         setProfile(null);
+        setUnreadNotifications(0);
       }
       setLoading(false);
     });
 
     return () => {
-      if (authListener) {
-        authListener.unsubscribe();
-      }
+      authListener?.unsubscribe();
     };
   }, []);
 
@@ -130,116 +124,80 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [user]);
 
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("name, email, role, created_at")
-        .eq("id", userId)
-        .single();
+const signIn = async (email: string, password: string) => {
+  setLoading(true);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  
+  console.log("Dados da sessão no AuthContext:", data);
+  console.log("Refresh token no AuthContext:", data?.session?.refresh_token);
+  
+  setLoading(false);
 
-      if (error && error.code !== "PGRST116") {
-        throw new Error(error.message);
-      } else if (error && error.code === "PGRST116") {
-        setProfile(null);
-        return;
-      }
-      setProfile(data as UserProfile);
-    } catch (error: any) {
-      console.error("Erro ao buscar perfil do usuário:", error.message);
-      setProfile(null);
-    }
-  };
+  if (error) {
+    return { success: false, error: error.message };
+  }
 
-  const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setLoading(false);
-      return { success: false, error: error.message };
-    }
-    if (data.session && data.user) {
-      setSession(data.session);
-      setUser(data.user);
-      await fetchUserProfile(data.user.id);
-    }
-    setLoading(false);
-    return { success: true, session: data.session };
+  if (data.user) {
+    await fetchUserProfile(data.user.id);
+  }
+
+  return { 
+    success: true, 
+    session: data.session,
+    error: undefined 
   };
+};
 
   const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
-    const {
-      data: { user, session },
-      error: authError,
-    } = await supabase.auth.signUp({ email, password });
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-    if (authError || !user) {
+    if (authError || !authData.user) {
       setLoading(false);
-      return {
-        success: false,
-        error: authError?.message || "Erro ao registrar usuário.",
-      };
+      return { success: false, error: authError?.message || "Erro desconhecido." };
     }
 
-    if (session && user) {
-      setSession(session);
-      setUser(user);
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({ id: user.id, role: "admin", email: user.email, name: name });
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .insert({ id: authData.user.id, role: "admin", email, name });
 
-      if (profileError) {
-        setLoading(false);
-        return {
-          success: false,
-          error: profileError.message || "Ocorreu um erro ao criar seu perfil.",
-        };
-      }
-      await fetchUserProfile(user.id);
-
+    if (profileError) {
       setLoading(false);
-      return { success: true };
-    } else {
-      Alert.alert(
-        "Aviso",
-        "Sua conta foi criada, faça o login para continuar."
-      );
-      setLoading(false);
-      return { success: true };
+      return { success: false, error: profileError.message };
     }
+
+    const signInResult = await signIn(email, password);
+    setLoading(false);
+    return { ...signInResult };
   };
 
   const signOut = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signOut();
+    await SecureStore.deleteItemAsync(LAST_EMAIL_KEY);
+    router.replace("/Auth/page");
+    setLoading(false);
     if (error) {
       Alert.alert("Erro ao sair", error.message);
     }
-    await SecureStore.deleteItemAsync(LAST_EMAIL_KEY);
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-    router.replace("/Auth/page");
-    setLoading(false);
   };
 
   const markNotificationsAsRead = async () => {
     if (!user) return;
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
 
-      if (error) throw error;
+    if (!error) {
       setUnreadNotifications(0);
-    } catch (error: any) {
-      console.error("Error marking notifications as read:", error.message);
     }
   };
 
