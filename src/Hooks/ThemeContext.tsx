@@ -22,17 +22,19 @@ interface ThemeColors {
   text: string;
   primary: string;
   secondary: string;
+  accent: string;
   card: string;
   border: string;
-  
+  success: string;
+  danger: string;
 }
 
 interface Theme {
   dark: boolean;
   colors: ThemeColors;
-  spacing: ThemeSizes; 
+  spacing: ThemeSizes;
   fontSizes: ThemeFontSizes;
-  borderRadius: ThemeSizes; 
+  borderRadius: ThemeSizes;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -40,31 +42,37 @@ const { width, height } = Dimensions.get('window');
 const lightTheme: Theme = {
   dark: false,
   colors: {
-    background: '#ffffff',
-    text: '#121212',
-    primary: '#007bff',
-    secondary: '#888',
-    card: '#f0f0f0',
-    border: '#e0e0e0',
+    background: '#F7F9FC',
+    text: '#2D3748',
+    primary: '#4A90E2',
+    secondary: '#718096',
+    accent: '#5DADE2',
+    card: '#FFFFFF',
+    border: '#E2E8F0',
+    success: '#38A169',
+    danger: '#E53E3E',
   },
-  spacing: { s: width * 0.02, m: width * 0.04, l: width * 0.06, xl: width * 0.08 }, 
-  fontSizes: { small: width * 0.03, medium: width * 0.04, large: width * 0.05, xLarge: width * 0.07 }, 
-  borderRadius: { s: 4, m: 8, l: 12, xl: 16 },
+  spacing: { s: width * 0.02, m: width * 0.04, l: width * 0.06, xl: width * 0.08 },
+  fontSizes: { small: width * 0.03, medium: width * 0.04, large: width * 0.05, xLarge: width * 0.07 },
+  borderRadius: { s: 8, m: 12, l: 16, xl: 20 },
 };
 
 const darkTheme: Theme = {
   dark: true,
   colors: {
-    background: '#121212',
-    text: '#ffffff',
-    primary: '#007bff',
-    secondary: '#aaa',
-    card: '#1e1e1e',
-    border: '#2a2a2a',
+    background: '#1A202C',
+    text: '#E2E8F0',
+    primary: '#4A90E2',
+    secondary: '#A0AEC0',
+    accent: '#5DADE2',
+    card: '#2D3748',
+    border: '#4A5568',
+    success: '#48BB78',
+    danger: '#F56565',
   },
-  spacing: { s: width * 0.02, m: width * 0.04, l: width * 0.06, xl: width * 0.08 }, 
-  fontSizes: { small: width * 0.03, medium: width * 0.04, large: width * 0.05, xLarge: width * 0.07 }, 
-  borderRadius: { s: 4, m: 8, l: 12, xl: 16 },
+  spacing: { s: width * 0.02, m: width * 0.04, l: width * 0.06, xl: width * 0.08 },
+  fontSizes: { small: width * 0.03, medium: width * 0.04, large: width * 0.05, xLarge: width * 0.07 },
+  borderRadius: { s: 8, m: 12, l: 16, xl: 20 },
 };
 
 interface ThemeContextType {

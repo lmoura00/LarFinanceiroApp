@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: width * 0.06,
+    padding: width * 0.08,
   },
   themeToggleContainer: {
     position: "absolute",
@@ -430,26 +430,33 @@ const styles = StyleSheet.create({
     right: width * 0.05,
     zIndex: 1,
   },
-  title: {
-    fontSize: width * 0.07,
-    fontWeight: "bold",
-    marginBottom: height * 0.04,
-    textAlign: "center",
+ title: {
+    fontSize: width * 0.08,
+    fontWeight: 'bold',
+    marginBottom: height * 0.05,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: height * 0.025,
+    marginBottom: height * 0.03,
   },
   input: {
-    height: height * 0.06,
-    borderWidth: 1,
+    height: height * 0.07,
+    borderWidth: 1.5,
     marginBottom: height * 0.02,
-    paddingHorizontal: width * 0.04,
+    paddingHorizontal: width * 0.05,
     fontSize: width * 0.04,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   button: {
     paddingVertical: height * 0.02,
-    alignItems: "center",
-    marginBottom: height * 0.025,
+    alignItems: 'center',
+    marginBottom: height * 0.03,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   buttonText: {
     color: "#fff",

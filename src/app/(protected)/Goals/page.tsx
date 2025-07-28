@@ -23,7 +23,6 @@ import { useAuth } from "@/Hooks/AuthContext";
 import { useFocusEffect } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 
-// --- Interfaces ---
 interface Goal {
   id: string;
   child_id: string;
@@ -40,7 +39,6 @@ interface Child {
   name: string;
 }
 
-// --- Dimensions & Components ---
 const { width, height } = Dimensions.get("window");
 
 const ProgressBar = ({
@@ -134,7 +132,7 @@ export default function GoalsScreen() {
       fetchData();
     }, [fetchData])
   );
-  
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchData();
@@ -409,15 +407,25 @@ export default function GoalsScreen() {
         key={goal.id}
         style={[styles.goalCard, { backgroundColor: theme.colors.card }]}
       >
-        {isParent && (
-          <Text style={[styles.childName, { color: theme.colors.secondary }]}>
-            {childName}
-          </Text>
-        )}
-        <View style={styles.goalTitleContainer}>
-          <Text style={[styles.goalTitle, { color: theme.colors.text }]}>
-            {goal.title}
-          </Text>
+        <View style={styles.goalHeader}>
+          <Ionicons
+            name="flag-outline"
+            size={32}
+            color={theme.colors.primary}
+            style={styles.goalIcon}
+          />
+          <View style={styles.goalTitleContainer}>
+            <Text style={[styles.goalTitle, { color: theme.colors.text }]}>
+              {goal.title}
+            </Text>
+            {isParent && (
+              <Text
+                style={[styles.childName, { color: theme.colors.secondary }]}
+              >
+                {childName}
+              </Text>
+            )}
+          </View>
           {isCompleted && (
             <Ionicons name="checkmark-circle" size={28} color="#2ecc71" />
           )}
@@ -453,13 +461,21 @@ export default function GoalsScreen() {
                 style={styles.actionButton}
                 onPress={() => openUpdateModal(goal)}
               >
-                <Ionicons name="add-circle-outline" size={32} color={theme.colors.primary} />
+                <Ionicons
+                  name="add-circle-outline"
+                  size={32}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleShareGoal(goal)}
               >
-                <Ionicons name="share-social-outline" size={28} color={theme.colors.primary} />
+                <Ionicons
+                  name="share-social-outline"
+                  size={28}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
             </>
           )}
@@ -470,7 +486,11 @@ export default function GoalsScreen() {
                   style={styles.actionButton}
                   onPress={() => handleApproveGoal(goal.id)}
                 >
-                  <Ionicons name="checkmark-done-outline" size={28} color="#2ecc71" />
+                  <Ionicons
+                    name="checkmark-done-outline"
+                    size={28}
+                    color="#2ecc71"
+                  />
                 </TouchableOpacity>
               )}
               {goal.is_approved && (
@@ -478,7 +498,11 @@ export default function GoalsScreen() {
                   style={styles.actionButton}
                   onPress={() => handleReleaseFunds(goal)}
                 >
-                   <Ionicons name="archive-outline" size={28} color={theme.colors.primary} />
+                  <Ionicons
+                    name="archive-outline"
+                    size={28}
+                    color={theme.colors.primary}
+                  />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -540,18 +564,30 @@ export default function GoalsScreen() {
         </Text>
         {approvedGoals.length === 0 && pendingGoals.length === 0 ? (
           <View style={styles.emptyStateContainer}>
-            <Ionicons name="file-tray-outline" size={60} color={theme.colors.secondary} />
-            <Text style={[styles.noDataText, { color: theme.colors.secondary }]}>
+            <Ionicons
+              name="file-tray-outline"
+              size={60}
+              color={theme.colors.secondary}
+            />
+            <Text
+              style={[styles.noDataText, { color: theme.colors.secondary }]}
+            >
               Nenhuma meta por aqui ainda.
             </Text>
           </View>
         ) : approvedGoals.length === 0 && isParent ? (
-            <View style={styles.emptyStateContainer}>
-              <Ionicons name="file-tray-outline" size={60} color={theme.colors.secondary} />
-              <Text style={[styles.noDataText, { color: theme.colors.secondary }]}>
-                Nenhuma meta ativa encontrada.
-              </Text>
-            </View>
+          <View style={styles.emptyStateContainer}>
+            <Ionicons
+              name="file-tray-outline"
+              size={60}
+              color={theme.colors.secondary}
+            />
+            <Text
+              style={[styles.noDataText, { color: theme.colors.secondary }]}
+            >
+              Nenhuma meta ativa encontrada.
+            </Text>
+          </View>
         ) : (
           approvedGoals.map(renderGoalCard)
         )}
@@ -559,88 +595,203 @@ export default function GoalsScreen() {
 
       <Modal visible={showCreateModal} transparent={true} animationType="slide">
         <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.modalBackdrop}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalBackdrop}
         >
-            <View style={[styles.modalContent, {backgroundColor: theme.colors.card}]}>
-                <View style={styles.modalHeader}>
-                    <Text style={[styles.modalTitle, {color: theme.colors.text}]}>Nova Meta</Text>
-                    <TouchableOpacity onPress={() => setShowCreateModal(false)}>
-                        <Ionicons name="close-circle" size={30} color={theme.colors.secondary} />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={[styles.inputContainer, {backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}]}>
-                    <Ionicons name="trophy-outline" size={24} color={theme.colors.secondary} style={styles.inputIcon} />
-                    <TextInput
-                      placeholder="Título da Meta"
-                      value={newGoalTitle}
-                      onChangeText={setNewGoalTitle}
-                      style={[styles.input, { color: theme.colors.text }]}
-                      placeholderTextColor={theme.colors.secondary}
-                    />
-                </View>
-
-                <View style={[styles.inputContainer, {backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}]}>
-                    <Ionicons name="cash-outline" size={24} color={theme.colors.secondary} style={styles.inputIcon} />
-                    <TextInput
-                      placeholder="Valor da Meta"
-                      value={newGoalTarget}
-                      onChangeText={setNewGoalTarget}
-                      keyboardType="numeric"
-                      style={[styles.input, { color: theme.colors.text }]}
-                      placeholderTextColor={theme.colors.secondary}
-                    />
-                </View>
-                
-                {isParent && (
-                  <>
-                    <Text style={[styles.pickerLabel, { color: theme.colors.text }]}>Atribuir para:</Text>
-                    <View style={[styles.pickerContainer, { borderColor: theme.colors.border, backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                      <Picker selectedValue={selectedChild} onValueChange={(itemValue) => setSelectedChild(itemValue)} style={{ color: theme.colors.text }} dropdownIconColor={theme.colors.text}>
-                        <Picker.Item label="Todos os Dependentes" value="all" />
-                        {children.map((child) => (<Picker.Item key={child.id} label={child.name} value={child.id} />))}
-                      </Picker>
-                    </View>
-                  </>
-                )}
-                <TouchableOpacity onPress={handleCreateGoal} style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}>
-                    <Text style={styles.modalButtonText}>Criar Meta</Text>
-                </TouchableOpacity>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.card },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                Nova Meta
+              </Text>
+              <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <Ionicons
+                  name="close-circle"
+                  size={30}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
             </View>
+
+            <View
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: theme.dark
+                    ? "rgba(255,255,255,0.1)"
+                    : "rgba(0,0,0,0.05)",
+                },
+              ]}
+            >
+              <Ionicons
+                name="trophy-outline"
+                size={24}
+                color={theme.colors.secondary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                placeholder="Título da Meta"
+                value={newGoalTitle}
+                onChangeText={setNewGoalTitle}
+                style={[styles.input, { color: theme.colors.text }]}
+                placeholderTextColor={theme.colors.secondary}
+              />
+            </View>
+
+            <View
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: theme.dark
+                    ? "rgba(255,255,255,0.1)"
+                    : "rgba(0,0,0,0.05)",
+                },
+              ]}
+            >
+              <Ionicons
+                name="cash-outline"
+                size={24}
+                color={theme.colors.secondary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                placeholder="Valor da Meta"
+                value={newGoalTarget}
+                onChangeText={setNewGoalTarget}
+                keyboardType="numeric"
+                style={[styles.input, { color: theme.colors.text }]}
+                placeholderTextColor={theme.colors.secondary}
+              />
+            </View>
+
+            {isParent && (
+              <>
+                <Text
+                  style={[styles.pickerLabel, { color: theme.colors.text }]}
+                >
+                  Atribuir para:
+                </Text>
+                <View
+                  style={[
+                    styles.pickerContainer,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.dark
+                        ? "rgba(255,255,255,0.1)"
+                        : "rgba(0,0,0,0.05)",
+                    },
+                  ]}
+                >
+                  <Picker
+                    selectedValue={selectedChild}
+                    onValueChange={(itemValue) => setSelectedChild(itemValue)}
+                    style={{ color: theme.colors.text }}
+                    dropdownIconColor={theme.colors.text}
+                  >
+                    <Picker.Item label="Todos os Dependentes" value="all" />
+                    {children.map((child) => (
+                      <Picker.Item
+                        key={child.id}
+                        label={child.name}
+                        value={child.id}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </>
+            )}
+            <TouchableOpacity
+              onPress={handleCreateGoal}
+              style={[
+                styles.modalButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              <Text style={styles.modalButtonText}>Criar Meta</Text>
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={showUpdateModal} transparent={true} animationType="slide">
         <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.modalBackdrop}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalBackdrop}
         >
-            <View style={[styles.modalContent, {backgroundColor: theme.colors.card}]}>
-                <View style={styles.modalHeader}>
-                    <Text style={[styles.modalTitle, {color: theme.colors.text}]}>Poupar para a Meta</Text>
-                    <TouchableOpacity onPress={() => { setShowUpdateModal(false); setAmountToSave(""); }}>
-                        <Ionicons name="close-circle" size={30} color={theme.colors.secondary} />
-                    </TouchableOpacity>
-                </View>
-                <Text style={{color: theme.colors.text, marginBottom: 15, textAlign: 'center', fontSize: width * 0.04}}>Meta: {selectedGoal?.title}</Text>
-                
-                <View style={[styles.inputContainer, {backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}]}>
-                    <Ionicons name="add-circle-outline" size={24} color={theme.colors.secondary} style={styles.inputIcon} />
-                    <TextInput
-                      placeholder="Valor a poupar"
-                      value={amountToSave}
-                      onChangeText={setAmountToSave}
-                      keyboardType="numeric"
-                      style={[styles.input, { color: theme.colors.text }]}
-                      placeholderTextColor={theme.colors.secondary}
-                    />
-                </View>
-                
-                <TouchableOpacity onPress={handleSaveForGoal} style={[styles.modalButton, {backgroundColor: theme.colors.primary}]}>
-                    <Text style={styles.modalButtonText}>Poupar</Text>
-                </TouchableOpacity>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.card },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                Poupar para a Meta
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowUpdateModal(false);
+                  setAmountToSave("");
+                }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={30}
+                  color={theme.colors.secondary}
+                />
+              </TouchableOpacity>
             </View>
+            <Text
+              style={{
+                color: theme.colors.text,
+                marginBottom: 15,
+                textAlign: "center",
+                fontSize: width * 0.04,
+              }}
+            >
+              Meta: {selectedGoal?.title}
+            </Text>
+
+            <View
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: theme.dark
+                    ? "rgba(255,255,255,0.1)"
+                    : "rgba(0,0,0,0.05)",
+                },
+              ]}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={24}
+                color={theme.colors.secondary}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                placeholder="Valor a poupar"
+                value={amountToSave}
+                onChangeText={setAmountToSave}
+                keyboardType="numeric"
+                style={[styles.input, { color: theme.colors.text }]}
+                placeholderTextColor={theme.colors.secondary}
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleSaveForGoal}
+              style={[
+                styles.modalButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              <Text style={styles.modalButtonText}>Poupar</Text>
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
@@ -669,14 +820,22 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   goalCard: {
-    padding: 15,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 20,
     marginBottom: 15,
-    elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  goalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  goalIcon: {
+    marginRight: 15,
   },
   childName: {
     fontSize: width * 0.035,
@@ -685,12 +844,9 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   goalTitleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
+    flex: 1,
   },
-  goalTitle: { fontSize: width * 0.05, fontWeight: "bold", flex: 1 },
+  goalTitle: { fontSize: width * 0.05, fontWeight: "bold" },
   amountText: {
     fontSize: width * 0.04,
     marginTop: 8,
@@ -698,13 +854,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   progressBarBackground: {
-    height: 25,
+    height: 20,
     width: "100%",
     backgroundColor: "rgba(120, 120, 128, 0.16)",
-    borderRadius: 15,
+    borderRadius: 10,
+    marginTop: 10,
     justifyContent: "center",
   },
-  progressBarFill: { height: "100%", borderRadius: 15 },
+  progressBarFill: { height: "100%", borderRadius: 10 },
   progressText: {
     position: "absolute",
     width: "100%",
@@ -725,11 +882,6 @@ const styles = StyleSheet.create({
     paddingTop: 15,
   },
   actionButton: { marginLeft: 25 },
-  actionButtonText: {
-    fontSize: width * 0.04,
-    fontWeight: "bold",
-    color: "#007AFF",
-  },
   emptyStateContainer: {
     justifyContent: "center",
     alignItems: "center",
@@ -756,17 +908,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: { width: "90%", padding: 20, borderRadius: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 25,
+  },
   modalTitle: {
     fontSize: width * 0.06,
     fontWeight: "bold",
     textAlign: "center",
     flex: 1,
-    marginLeft: 30, // to center the title
+    marginLeft: 30,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 10,
     marginBottom: 15,
     paddingHorizontal: 12,
@@ -784,7 +941,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginBottom: 8,
     fontSize: width * 0.04,
-    fontWeight: '500'
+    fontWeight: "500",
   },
   pickerContainer: {
     width: "100%",
@@ -793,8 +950,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalButton: {
-    width: '100%', 
-    marginTop: 10, 
+    width: "100%",
+    marginTop: 10,
     padding: 15,
     borderRadius: 12,
     alignItems: "center",
@@ -802,12 +959,6 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-  },
-  modalButtonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    marginTop: 10,
   },
   modalButtonText: {
     color: "#fff",

@@ -155,45 +155,47 @@ export default function ProfileScreen() {
           {profile?.email || "email@exemplo.com"}
         </Text>
 
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: theme.colors.card,
-              borderColor: theme.colors.border,
-              borderRadius: theme.borderRadius.m,
-            },
-          ]}
-        >
-          <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-            Função:
-          </Text>
-          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>
-            {profile?.role === "child"
-              ? "Filho"
-              : profile?.role === "admin"
-              ? "Responsável"
-              : profile?.role || "Membro"}
-          </Text>
+        <View style={[styles.infoCard, { backgroundColor: theme.colors.card }]}>
+          <Ionicons
+            name="briefcase-outline"
+            size={24}
+            color={theme.colors.primary}
+            style={styles.infoIcon}
+          />
+          <View style={styles.infoContent}>
+            <Text style={[styles.infoTitle, { color: theme.colors.secondary }]}>
+              Função:
+            </Text>
+            <Text style={[styles.infoText, { color: theme.colors.text }]}>
+              {profile?.role === "child"
+                ? "Filho"
+                : profile?.role === "admin"
+                ? "Responsável"
+                : profile?.role || "Membro"}
+            </Text>
+          </View>
         </View>
 
         {profile?.role === "child" && parentName && (
           <View
-            style={[
-              styles.infoCard,
-              {
-                backgroundColor: theme.colors.card,
-                borderColor: theme.colors.border,
-                borderRadius: theme.borderRadius.m,
-              },
-            ]}
+            style={[styles.infoCard, { backgroundColor: theme.colors.card }]}
           >
-            <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-              Responsável:
-            </Text>
-            <Text style={[styles.infoText, { color: theme.colors.secondary }]}>
-              {parentName}
-            </Text>
+            <Ionicons
+              name="people-outline"
+              size={24}
+              color={theme.colors.primary}
+              style={styles.infoIcon}
+            />
+            <View style={styles.infoContent}>
+              <Text
+                style={[styles.infoTitle, { color: theme.colors.secondary }]}
+              >
+                Responsável:
+              </Text>
+              <Text style={[styles.infoText, { color: theme.colors.text }]}>
+                {parentName}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -210,31 +212,30 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: theme.colors.card,
-              borderColor: theme.colors.border,
-              borderRadius: theme.borderRadius.m,
-            },
-          ]}
-        >
-          <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-            Membro desde:
-          </Text>
-          <Text style={[styles.infoText, { color: theme.colors.secondary }]}>
-            {profile?.created_at
-              ? new Date(profile.created_at).toLocaleDateString("pt-BR")
-              : "Data Indisponível"}
-          </Text>
+        <View style={[styles.infoCard, { backgroundColor: theme.colors.card }]}>
+          <Ionicons
+            name="calendar-outline"
+            size={24}
+            color={theme.colors.primary}
+            style={styles.infoIcon}
+          />
+          <View style={styles.infoContent}>
+            <Text style={[styles.infoTitle, { color: theme.colors.secondary }]}>
+              Membro desde:
+            </Text>
+            <Text style={[styles.infoText, { color: theme.colors.text }]}>
+              {profile?.created_at
+                ? new Date(profile.created_at).toLocaleDateString("pt-BR")
+                : "Data Indisponível"}
+            </Text>
+          </View>
         </View>
 
         <TouchableOpacity
           style={[
             styles.logoutButton,
             {
-              backgroundColor: theme.colors.primary,
+              backgroundColor: theme.colors.danger,
               borderRadius: theme.borderRadius.m,
             },
           ]}
@@ -272,14 +273,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: height * 0.025,
+    paddingBottom: height * 0.05,
   },
   profileIcon: {
-    marginBottom: height * 0.025,
+    marginBottom: height * 0.01,
   },
   userName: {
-    fontSize: width * 0.06,
+    fontSize: width * 0.07,
     fontWeight: "bold",
-    marginBottom: height * 0.005,
+    marginBottom: height * 0.01,
   },
   userEmail: {
     fontSize: width * 0.04,
@@ -287,22 +289,35 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     width: "100%",
-    padding: width * 0.04,
-    borderWidth: 1,
-    marginBottom: height * 0.015,
+    padding: width * 0.05,
+    borderRadius: 15,
+    marginBottom: height * 0.02,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  infoIcon: {
+    marginRight: width * 0.04,
+  },
+  infoContent: {
+    flex: 1,
   },
   infoTitle: {
-    fontSize: width * 0.04,
-    fontWeight: "bold",
-    marginBottom: height * 0.005,
+    fontSize: width * 0.035,
+    marginBottom: 2,
   },
   infoText: {
-    fontSize: width * 0.035,
+    fontSize: width * 0.045,
+    fontWeight: "bold",
   },
   logoutButton: {
-    marginTop: height * 0.04,
-    paddingVertical: height * 0.015,
-    paddingHorizontal: width * 0.06,
+    marginTop: height * 0.03,
+    paddingVertical: height * 0.018,
+    width: "100%",
     alignItems: "center",
     marginBottom: height * 0.09,
   },
@@ -320,6 +335,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.05,
     fontWeight: "bold",
     marginBottom: height * 0.01,
+    alignSelf: "flex-start",
   },
   badge: {
     flexDirection: "row",

@@ -360,7 +360,9 @@ export default function DashboardScreen() {
           />
         </TouchableOpacity>
       </View>
-      <View style={styles.balanceSection}>
+      <View
+        style={[styles.balanceSection, { backgroundColor: theme.colors.card }]}
+      >
         <Text style={[styles.balanceTitle, { color: theme.colors.secondary }]}>
           {mainBalanceTitle}
         </Text>
@@ -688,9 +690,22 @@ const styles = StyleSheet.create({
     paddingBottom: height * 0.01,
   },
   headerText: { fontSize: width * 0.045, fontWeight: "bold" },
-  balanceSection: { alignItems: "center", marginBottom: height * 0.015 },
+  balanceSection: {
+    alignItems: 'center',
+    marginBottom: height * 0.03,
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
   balanceTitle: { fontSize: width * 0.04 },
-  balanceAmount: { fontSize: width * 0.1, fontWeight: "bold" },
+  balanceAmount: {
+    fontSize: width * 0.12, 
+    fontWeight: 'bold',
+  },
   actionsScrollViewContent: { paddingVertical: height * 0.01 },
   actionCard: {
     width: width * 0.28,
@@ -771,14 +786,14 @@ const styles = StyleSheet.create({
   transactionItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 10,
+    padding: 15,
+    borderRadius: 15,
     marginBottom: 10,
-    elevation: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
+    elevation: 2,
   },
   transactionIconContainer: {
     width: 45,
