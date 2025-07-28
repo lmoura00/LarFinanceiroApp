@@ -793,15 +793,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalButton: {
-    flex: 1,
+    width: '100%', 
+    marginTop: 10, 
     padding: 15,
     borderRadius: 12,
     alignItems: "center",
-    marginHorizontal: 5,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.2
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
   },
   modalButtonContainer: {
     flexDirection: "row",
@@ -809,5 +809,9 @@ const styles = StyleSheet.create({
     width: "100%",
     marginTop: 10,
   },
-  modalButtonText: { color: "#fff", fontWeight: "bold", fontSize: width * 0.04, height:150},
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: width * 0.04,
+  },
 });
