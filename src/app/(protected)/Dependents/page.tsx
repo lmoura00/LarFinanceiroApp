@@ -20,18 +20,13 @@ import { supabase } from "@/supabaseClient";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import * as SecureStore from "expo-secure-store";
-import MapView, { Marker } from "react-native-maps";
 import { BarChart } from "react-native-chart-kit";
 
 const { width, height } = Dimensions.get("window");
 
 const BIOMETRIC_KEY = "supabase_refresh_token_biometric";
 
-interface LocationCoords {
-  latitude: number;
-  longitude: number;
-}
-
+// --- INTERFACES ---
 interface Child {
   id: string;
   name: string;
@@ -45,7 +40,6 @@ interface Expense {
   amount: number;
   category: string | null;
   expense_date: string;
-  location_coords: LocationCoords | null;
   created_at: string;
   type: "income" | "expense";
 }
@@ -60,21 +54,34 @@ export default function DependentsScreen() {
   const { theme, toggleTheme } = useTheme();
   const { user, profile, loading: authLoading } = useAuth();
 
+  // --- STATE MANAGEMENT ---
   const [children, setChildren] = useState<Child[]>([]);
+  const [fetchingChildren, setFetchingChildren] = useState(true);
+
+  // Add Child State
   const [newChildName, setNewChildName] = useState("");
   const [newChildEmail, setNewChildEmail] = useState("");
   const [newChildAllowanceAmount, setNewChildAllowanceAmount] = useState("");
   const [newChildAllowanceFrequency, setNewChildAllowanceFrequency] = useState<
     string | null
   >(null);
-  const [fetchingChildren, setFetchingChildren] = useState(true);
   const [addingChild, setAddingChild] = useState(false);
+
+  // View/Edit/Delete State
   const [selectedChild, setSelectedChild] = useState<ChildDetail | null>(null);
-  const [showChildDetails, setShowChildDetails] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [fetchingChildDetails, setFetchingChildDetails] = useState(false);
 
-  const mapRef = useRef<MapView>(null);
+  // Edit State
+  const [editingName, setEditingName] = useState("");
+  const [editingAllowanceAmount, setEditingAllowanceAmount] = useState("");
+  const [editingAllowanceFrequency, setEditingAllowanceFrequency] = useState<
+    string | null
+  >("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
+  // --- DATA FETCHING ---
   useEffect(() => {
     if (user) {
       fetchChildren();
@@ -108,338 +115,6 @@ export default function DependentsScreen() {
     }
   };
 
-  const handleAddChild = async () => {
-    if (!newChildName.trim() || !newChildEmail.trim()) {
-      Alert.alert("Erro", "O nome e o e-mail do dependente são obrigatórios.");
-      return;
-    }
-    if (!user) {
-      Alert.alert(
-        "Erro",
-        "Você precisa estar logado para adicionar um dependente."
-      );
-      return;
-    }
-
-    setAddingChild(true);
-    let originalSessionData: {
-      access_token: string;
-      refresh_token: string;
-    } | null = null;
-
-    try {
-      const {
-        data: { session: currentParentSession },
-        error: getSessionError,
-      } = await supabase.auth.getSession();
-      if (getSessionError || !currentParentSession) {
-        throw new Error(
-          getSessionError?.message ||
-            "Não foi possível obter a sessão do responsável."
-        );
-      }
-      originalSessionData = {
-        access_token: currentParentSession.access_token,
-        refresh_token: currentParentSession.refresh_token,
-      };
-
-      const fixedInitialPassword = "123456";
-
-      const { data: userData, error: authError } = await supabase.auth.signUp({
-        email: newChildEmail,
-        password: fixedInitialPassword,
-      });
-
-      if (authError || !userData?.user) {
-        throw new Error(
-          authError?.message ||
-            "Erro ao criar conta de usuário para o dependente."
-        );
-      }
-      const childUserId = userData.user.id;
-
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: childUserId,
-        role: "child",
-        email: newChildEmail,
-        name: newChildName,
-      });
-      if (profileError) throw new Error(profileError.message);
-
-      let amountToAdd: number | null = null;
-      if (newChildAllowanceAmount.trim()) {
-        amountToAdd = parseFloat(newChildAllowanceAmount.replace(",", "."));
-      }
-
-      const { data: childData, error: childError } = await supabase
-        .from("children")
-        .insert({
-          id: childUserId,
-          parent_id: user.id,
-          name: newChildName,
-          allowance_amount: amountToAdd,
-          allowance_frequency: newChildAllowanceFrequency,
-        })
-        .select()
-        .single();
-      if (childError) throw childError;
-
-      setChildren((prev) => [...prev, childData]);
-      setNewChildName("");
-      setNewChildEmail("");
-      setNewChildAllowanceAmount("");
-      setNewChildAllowanceFrequency(null);
-
-      Alert.alert(
-        "Dependente Adicionado!",
-        `A conta de ${newChildName} foi criada. A senha padrão é "123456". O dependente deve alterar a senha no primeiro login.`
-      );
-    } catch (error: any) {
-      Alert.alert(
-        "Erro",
-        "Não foi possível adicionar o dependente: " + error.message
-      );
-    } finally {
-      if (originalSessionData) {
-        const { error: setSessionError } = await supabase.auth.setSession(
-          originalSessionData
-        );
-        if (setSessionError) {
-          console.error(
-            "Erro ao restaurar a sessão do responsável:",
-            setSessionError.message
-          );
-          await supabase.auth.signOut();
-        } else {
-          const {
-            data: { session: newParentSession },
-          } = await supabase.auth.getSession();
-          if (newParentSession?.refresh_token) {
-            const isBiometricEnabled = await SecureStore.getItemAsync(
-              BIOMETRIC_KEY
-            );
-            if (isBiometricEnabled) {
-              await SecureStore.setItemAsync(
-                BIOMETRIC_KEY,
-                newParentSession.refresh_token
-              );
-            }
-          }
-        }
-      }
-      setAddingChild(false);
-    }
-  };
-
-  const generateAndShareLoginPdf = async (
-    childName: string | null,
-    childEmail: string | null
-  ) => {
-    if (!childName || !childEmail) {
-      Alert.alert(
-        "Erro",
-        "Nome ou e-mail do dependente não disponível para gerar PDF."
-      );
-      return;
-    }
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Dados de Acesso - Lar Financeiro App</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-          .header { text-align: center; margin-bottom: 20px; }
-          .logo { font-size: 30px; font-weight: bold; color: #007AFF; margin-bottom: 10px; }
-          .app-name { font-size: 20px; color: #555; }
-          .details { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
-          .detail-row { margin-bottom: 10px; }
-          .label { font-weight: bold; }
-          .instructions { margin-top: 30px; padding: 15px; border: 1px solid #ffcc00; background-color: #fffacd; border-radius: 5px; color: #856404; }
-          .security-note { font-size: 14px; font-style: italic; color: #777; margin-top: 15px; text-align: center; }
-          .logo-img { width: 80px; height: 80px; margin-bottom: 10px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <img src="https://i.ibb.co/mVS7hpKZ/splash-icon-dark.png" class="logo-img" alt="Lar Financeiro Logo" />
-            <div class="logo">Lar Financeiro</div>
-            <div class="app-name">Seu aplicativo de finanças familiares</div>
-          </div>
-          <div class="details">
-            <h2 style="text-align: center; color: #007AFF;">Dados de Acesso do Dependente</h2>
-            <div class="detail-row"><span class="label">Nome do Dependente:</span> ${childName}</div>
-            <div class="detail-row"><span class="label">E-mail de Acesso:</span> ${childEmail}</div>
-            <div class="detail-row"><span class="label">Senha de Acesso Padrão:</span> 123456</div>
-          </div>
-          <div class="instructions">
-            <h3>Instruções para o Primeiro Acesso:</h3>
-            <p>A conta de ${childName} foi criada com sucesso!</p>
-            <p>Para o primeiro acesso à aplicação, o dependente deverá seguir estes passos:</p>
-            <ol>
-              <li>Na tela de login do aplicativo, insira o e-mail: <strong>${childEmail}</strong>.</li>
-              <li>Em seguida, insira a senha: <strong>123456</strong>.</li>
-              <li>Clique no botão "Entrar".</li>
-              <li>Depois de entrar, o dependente deverá criar uma nova senha segura.</li>
-              <li>Após definir a nova senha, o dependente poderá fazer login normalmente com o e-mail e a senha recém-criada.</li>
-            </ol>
-          </div>
-          <p class="security-note">* Por motivos de segurança, você deverá alterar a senha de acesso exibida neste documento. O dependente deve criar a sua própria senha segura após o primeiro acesso.</p>
-        </div>
-      </body>
-      </html>
-    `;
-
-    try {
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false,
-      });
-      if (Platform.OS === "web") {
-        window.open(uri, "_blank");
-      } else if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: `Dados de Acesso - ${childName}`,
-          UTI: "com.adobe.pdf",
-        });
-      } else {
-        Alert.alert(
-          "Erro",
-          "A funcionalidade de partilha de PDF não está disponível neste dispositivo."
-        );
-      }
-    } catch (error: any) {
-      Alert.alert("Erro", "Não foi possível gerar ou partilhar o PDF.");
-    }
-  };
-
-  const generateAndShareExpensesPdf = async (child: ChildDetail | null) => {
-    if (!child) {
-      Alert.alert("Erro", "Nenhum dependente selecionado.");
-      return;
-    }
-
-    const expensesHtml = child.expenses
-      .map(
-        (expense) => `
-      <tr>
-        <td>${expense.description}</td>
-        <td>${expense.category || "N/A"}</td>
-        <td>${new Date(expense.expense_date).toLocaleDateString("pt-BR")}</td>
-        <td style="text-align: right; color: ${
-          expense.type === "income" ? "green" : "red"
-        };">${
-          expense.type === "income" ? "+ " : "- "
-        }${expense.amount.toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        })}</td>
-      </tr>
-    `
-      )
-      .join("");
-
-    const totalExpenses = child.expenses.reduce((acc, expense) => {
-      if (expense.type === "expense") {
-        return acc + expense.amount;
-      }
-      return acc;
-    }, 0);
-    const totalIncomes = child.expenses.reduce((acc, expense) => {
-      if (expense.type === "income") {
-        return acc + expense.amount;
-      }
-      return acc;
-    }, 0);
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Relatório de Gastos - ${child.name}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-          .container { max-width: 800px; margin: 0 auto; border: 1px solid #eee; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-          .header { text-align: center; margin-bottom: 20px; }
-          .logo { font-size: 30px; font-weight: bold; color: #007AFF; margin-bottom: 10px; }
-          .app-name { font-size: 20px; color: #555; }
-          h2 { text-align: center; color: #007AFF; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-          .summary { margin-top: 20px; padding-top: 10px; border-top: 2px solid #333; text-align: right; }
-          .summary p { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="logo">Lar Financeiro</div>
-            <div class="app-name">Relatório de Transações</div>
-          </div>
-          <h2>Transações de ${child.name}</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th>Categoria</th>
-                <th>Data</th>
-                <th style="text-align: right;">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${expensesHtml}
-            </tbody>
-          </table>
-          <div class="summary">
-            <p style="color: red;">Total de Despesas: ${totalExpenses.toLocaleString(
-              "pt-BR",
-              {
-                style: "currency",
-                currency: "BRL",
-              }
-            )}</p>
-            <p style="color: green;">Total de Receitas: ${totalIncomes.toLocaleString(
-              "pt-BR",
-              {
-                style: "currency",
-                currency: "BRL",
-              }
-            )}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    try {
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false,
-      });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: `Relatório de Gastos - ${child.name}`,
-          UTI: "com.adobe.pdf",
-        });
-      } else {
-        Alert.alert(
-          "Erro",
-          "A funcionalidade de partilha de PDF não está disponível neste dispositivo."
-        );
-      }
-    } catch (error: any) {
-      Alert.alert("Erro", "Não foi possível gerar ou partilhar o PDF.");
-    }
-  };
-
   const fetchChildDetails = async (child: Child) => {
     setFetchingChildDetails(true);
     try {
@@ -449,7 +124,6 @@ export default function DependentsScreen() {
         .eq("id", child.id)
         .single();
       if (profileError && profileError.code !== "PGRST116") throw profileError;
-      const childEmail = profileData ? profileData.email : null;
 
       const { data: expensesData, error: expensesError } = await supabase
         .from("expenses")
@@ -469,11 +143,11 @@ export default function DependentsScreen() {
 
       setSelectedChild({
         ...child,
-        email: childEmail,
+        email: profileData?.email || null,
         expenses: expensesData || [],
         categorySummary,
       });
-      setShowChildDetails(true);
+      setShowDetailsModal(true);
     } catch (error: any) {
       Alert.alert(
         "Erro",
@@ -484,6 +158,260 @@ export default function DependentsScreen() {
     }
   };
 
+  // --- CRUD OPERATIONS ---
+  const handleAddChild = async () => {
+    if (!newChildName.trim() || !newChildEmail.trim()) {
+      Alert.alert("Erro", "O nome e o e-mail do dependente são obrigatórios.");
+      return;
+    }
+    if (!user) {
+      Alert.alert(
+        "Erro",
+        "Você precisa estar logado para adicionar um dependente."
+      );
+      return;
+    }
+    setAddingChild(true);
+    let originalSessionData: any = null;
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão do responsável não encontrada.");
+      originalSessionData = {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      };
+
+      const { data: userData, error: authError } = await supabase.auth.signUp({
+        email: newChildEmail,
+        password: "123456",
+      });
+      if (authError || !userData?.user)
+        throw new Error(
+          authError?.message || "Erro ao criar conta para o dependente."
+        );
+
+      const childUserId = userData.user.id;
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          id: childUserId,
+          role: "child",
+          email: newChildEmail,
+          name: newChildName,
+        });
+      if (profileError) throw profileError;
+
+      const amountToAdd = newChildAllowanceAmount.trim()
+        ? parseFloat(newChildAllowanceAmount.replace(",", "."))
+        : null;
+      const { data: childData, error: childError } = await supabase
+        .from("children")
+        .insert({
+          id: childUserId,
+          parent_id: user.id,
+          name: newChildName,
+          allowance_amount: amountToAdd,
+          allowance_frequency: newChildAllowanceFrequency,
+        })
+        .select()
+        .single();
+      if (childError) throw childError;
+
+      setChildren((prev) => [...prev, childData]);
+      setNewChildName("");
+      setNewChildEmail("");
+      setNewChildAllowanceAmount("");
+      setNewChildAllowanceFrequency(null);
+      Alert.alert(
+        "Dependente Adicionado!",
+        `A conta de ${newChildName} foi criada com a senha padrão "123456".`
+      );
+    } catch (error: any) {
+      Alert.alert("Erro ao Adicionar", error.message);
+    } finally {
+      if (originalSessionData) {
+        await supabase.auth.setSession(originalSessionData);
+      }
+      setAddingChild(false);
+    }
+  };
+
+  const openEditModal = (child: ChildDetail) => {
+    setShowDetailsModal(false);
+    setSelectedChild(child);
+    setEditingName(child.name);
+    setEditingAllowanceAmount(
+      child.allowance_amount?.toString().replace(".", ",") || ""
+    );
+    setEditingAllowanceFrequency(child.allowance_frequency || null);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateChild = async () => {
+    if (!selectedChild || !editingName.trim()) {
+      Alert.alert("Erro", "O nome não pode ficar em branco.");
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      const amountToUpdate = editingAllowanceAmount.trim()
+        ? parseFloat(editingAllowanceAmount.replace(",", "."))
+        : null;
+
+      const { error: childError } = await supabase
+        .from("children")
+        .update({
+          name: editingName,
+          allowance_amount: amountToUpdate,
+          allowance_frequency: editingAllowanceFrequency,
+        })
+        .eq("id", selectedChild.id);
+      if (childError) throw childError;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ name: editingName })
+        .eq("id", selectedChild.id);
+      if (profileError) throw profileError;
+
+      Alert.alert("Sucesso", "Dependente atualizado com sucesso!");
+      setShowEditModal(false);
+      fetchChildren();
+    } catch (error: any) {
+      Alert.alert("Erro ao Atualizar", error.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteChild = async (child: ChildDetail) => {
+    setShowDetailsModal(false);
+    Alert.alert(
+      "Confirmar Exclusão",
+      `Tem certeza que deseja excluir ${child.name}? Esta ação é irreversível e irá apagar a conta e todos os dados associados a ela.`,
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+          onPress: () => setShowDetailsModal(true),
+        },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { data, error } = await supabase.rpc(
+                "delete_user_and_data",
+                { user_id_to_delete: child.id }
+              );
+              if (error) throw error;
+
+              Alert.alert("Sucesso", `${child.name} foi excluído.`);
+              fetchChildren(); // Refresh the list
+            } catch (error: any) {
+              Alert.alert(
+                "Erro ao Excluir",
+                "Não foi possível remover o dependente. Tente novamente."
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // --- PDF GENERATION ---
+  const generateAndShareLoginPdf = async (
+    childName: string | null,
+    childEmail: string | null
+  ) => {
+    if (!childName || !childEmail) {
+      Alert.alert("Erro", "Dados do dependente indisponíveis para gerar PDF.");
+      return;
+    }
+    const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Dados de Acesso - Lar Financeiro</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#333}.container{max-width:600px;margin:auto;border:1px solid #ddd;padding:30px;box-shadow:0 0 10px rgba(0,0,0,.1);border-radius:8px}.header{text-align:center;margin-bottom:30px}.logo{font-size:32px;font-weight:700;color:#007aff}h2{color:#007aff;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:20px}.detail-row{margin-bottom:15px;font-size:16px}.label{font-weight:700}.instructions{margin-top:30px;padding:15px;border:1px solid #ffc107;background-color:#fff3cd;border-radius:5px;color:#856404}</style></head><body><div class="container"><div class="header"><div class="logo">Lar Financeiro</div></div><h2>Dados de Acesso do Dependente</h2><div class="detail-row"><span class="label">Nome:</span> ${childName}</div><div class="detail-row"><span class="label">E-mail:</span> ${childEmail}</div><div class="detail-row"><span class="label">Senha Padrão:</span> 123456</div><div class="instructions"><p><b>Importante:</b> O dependente deve alterar esta senha no primeiro login para garantir a segurança da conta.</p></div></div></body></html>`;
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Dados de Acesso - ${childName}`,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Erro",
+        "Não foi possível gerar ou compartilhar o PDF de login."
+      );
+    }
+  };
+
+  const generateAndShareExpensesPdf = async (child: ChildDetail | null) => {
+    if (!child) return;
+    const expensesHtml = child.expenses
+      .map(
+        (expense) => `
+        <tr>
+            <td>${expense.description}</td>
+            <td>${expense.category || "N/A"}</td>
+            <td>${new Date(expense.expense_date).toLocaleDateString(
+              "pt-BR"
+            )}</td>
+            <td style="text-align: right; color: ${
+              expense.type === "income" ? "green" : "red"
+            };">
+                ${
+                  expense.type === "income" ? "+ " : "- "
+                }${expense.amount.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })}
+            </td>
+        </tr>
+    `
+      )
+      .join("");
+
+    const totalExpenses = child.expenses
+      .filter((e) => e.type === "expense")
+      .reduce((sum, e) => sum + e.amount, 0);
+    const totalIncomes = child.expenses
+      .filter((e) => e.type === "income")
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Gastos - ${
+      child.name
+    }</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#333}.container{max-width:800px;margin:0 auto;border:1px solid #eee;padding:20px;box-shadow:0 0 10px rgba(0,0,0,.1)}.header{text-align:center;margin-bottom:20px}.logo{font-size:30px;font-weight:700;color:#007aff;margin-bottom:10px}.app-name{font-size:20px;color:#555}h2{text-align:center;color:#007aff}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background-color:#f2f2f2}.summary{margin-top:20px;padding-top:10px;border-top:2px solid #333;text-align:right}.summary p{font-size:16px;font-weight:700}</style></head><body><div class="container"><div class="header"><div class="logo">Lar Financeiro</div><div class="app-name">Relatório de Transações</div></div><h2>Transações de ${
+      child.name
+    }</h2><table><thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th style="text-align:right">Valor</th></tr></thead><tbody>${expensesHtml}</tbody></table><div class="summary"><p style="color:red">Total de Despesas: ${totalExpenses.toLocaleString(
+      "pt-BR",
+      { style: "currency", currency: "BRL" }
+    )}</p><p style="color:green">Total de Receitas: ${totalIncomes.toLocaleString(
+      "pt-BR",
+      { style: "currency", currency: "BRL" }
+    )}</p></div></div></body></html>`;
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Relatório de Gastos - ${child.name}`,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Erro",
+        "Não foi possível gerar ou compartilhar o PDF de despesas."
+      );
+    }
+  };
+
+  // --- RENDER ---
   if (authLoading || fetchingChildren) {
     return (
       <View
@@ -493,37 +421,6 @@ export default function DependentsScreen() {
         ]}
       >
         <ActivityIndicator size="large" color={theme.colors.text} />
-        <Text style={{ color: theme.colors.text, marginTop: theme.spacing.m }}>
-          Carregando dependentes...
-        </Text>
-      </View>
-    );
-  }
-
-  if (profile?.role !== "admin" && profile?.role !== "responsible") {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: theme.colors.background,
-            justifyContent: "center",
-            alignItems: "center",
-          },
-        ]}
-      >
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          Acesso Negado
-        </Text>
-        <Text
-          style={[
-            styles.subtitle,
-            { color: theme.colors.secondary, textAlign: "center" },
-          ]}
-        >
-          Somente usuários com perfil de responsável podem gerenciar
-          dependentes.
-        </Text>
       </View>
     );
   }
@@ -546,6 +443,8 @@ export default function DependentsScreen() {
         </Text>
         <View style={{ width: theme.fontSizes.large }} />
       </View>
+
+      {/* --- ADD CHILD FORM --- */}
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.colors.text }]}>
           Adicionar Novo Dependente
@@ -557,14 +456,12 @@ export default function DependentsScreen() {
               borderColor: theme.colors.border,
               backgroundColor: theme.colors.card,
               color: theme.colors.text,
-              borderRadius: theme.borderRadius.m,
             },
           ]}
           onChangeText={setNewChildName}
           value={newChildName}
           placeholder="Nome do Dependente"
           placeholderTextColor={theme.colors.secondary}
-          autoCapitalize="words"
         />
         <TextInput
           style={[
@@ -573,7 +470,6 @@ export default function DependentsScreen() {
               borderColor: theme.colors.border,
               backgroundColor: theme.colors.card,
               color: theme.colors.text,
-              borderRadius: theme.borderRadius.m,
             },
           ]}
           onChangeText={setNewChildEmail}
@@ -590,7 +486,6 @@ export default function DependentsScreen() {
               borderColor: theme.colors.border,
               backgroundColor: theme.colors.card,
               color: theme.colors.text,
-              borderRadius: theme.borderRadius.m,
             },
           ]}
           onChangeText={setNewChildAllowanceAmount}
@@ -599,115 +494,32 @@ export default function DependentsScreen() {
           placeholderTextColor={theme.colors.secondary}
           keyboardType="numeric"
         />
-        <View style={styles.frequencyContainer}>
-          <Text style={[styles.frequencyLabel, { color: theme.colors.text }]}>
-            Frequência da Mesada (opcional):
-          </Text>
-          <View style={styles.frequencyButtons}>
-            <TouchableOpacity
-              style={[
-                styles.frequencyButton,
-                {
-                  backgroundColor:
-                    newChildAllowanceFrequency === "Semanal"
-                      ? theme.colors.primary
-                      : theme.colors.card,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.borderRadius.s,
-                },
-              ]}
-              onPress={() => setNewChildAllowanceFrequency("Semanal")}
-            >
-              <Text
-                style={[
-                  styles.frequencyButtonText,
-                  {
-                    color:
-                      newChildAllowanceFrequency === "Semanal"
-                        ? "#fff"
-                        : theme.colors.text,
-                  },
-                ]}
-              >
-                Semanal
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.frequencyButton,
-                {
-                  backgroundColor:
-                    newChildAllowanceFrequency === "Mensal"
-                      ? theme.colors.primary
-                      : theme.colors.card,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.borderRadius.s,
-                },
-              ]}
-              onPress={() => setNewChildAllowanceFrequency("Mensal")}
-            >
-              <Text
-                style={[
-                  styles.frequencyButtonText,
-                  {
-                    color:
-                      newChildAllowanceFrequency === "Mensal"
-                        ? "#fff"
-                        : theme.colors.text,
-                  },
-                ]}
-              >
-                Mensal
-              </Text>
-            </TouchableOpacity>
-            {newChildAllowanceFrequency && (
-              <TouchableOpacity
-                style={[
-                  styles.clearFrequencyButton,
-                  {
-                    borderColor: theme.colors.border,
-                    borderRadius: theme.borderRadius.s,
-                  },
-                ]}
-                onPress={() => setNewChildAllowanceFrequency(null)}
-              >
-                <Ionicons
-                  name="close-circle-outline"
-                  size={theme.fontSizes.medium}
-                  color={theme.colors.secondary}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
         <TouchableOpacity
-          style={[
-            styles.button,
-            {
-              backgroundColor: theme.colors.primary,
-              borderRadius: theme.borderRadius.m,
-            },
-          ]}
+          style={[styles.button, { backgroundColor: theme.colors.primary }]}
           onPress={handleAddChild}
           disabled={addingChild}
         >
           {addingChild ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Adicionar Dependente</Text>
+            <Text style={styles.buttonText}>Adicionar</Text>
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* --- CHILDREN LIST --- */}
+      <View style={styles.content}>
         <Text
           style={[
             styles.title,
             { color: theme.colors.text, marginTop: height * 0.04 },
           ]}
         >
-          Dependentes Existentes
+          Dependentes
         </Text>
         {children.length === 0 ? (
           <Text style={[styles.subtitle, { color: theme.colors.secondary }]}>
-            Nenhum dependente adicionado ainda.
+            Nenhum dependente adicionado.
           </Text>
         ) : (
           children.map((child) => (
@@ -762,161 +574,248 @@ export default function DependentsScreen() {
           ))
         )}
       </View>
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={showChildDetails}
-        onRequestClose={() => setShowChildDetails(false)}
-      >
-        <View
-          style={[
-            styles.modalContainer,
-            { backgroundColor: theme.colors.background },
-          ]}
+
+      {/* --- DETAILS MODAL --- */}
+      {selectedChild && (
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={showDetailsModal}
+          onRequestClose={() => setShowDetailsModal(false)}
         >
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowChildDetails(false)}>
-              <Ionicons
-                name="arrow-back"
-                size={theme.fontSizes.large}
-                color={theme.colors.text}
-              />
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-              Detalhes de {selectedChild?.name}
-            </Text>
-            <View style={{ flexDirection: "row" }}>
-              <TouchableOpacity
-                onPress={() => generateAndShareExpensesPdf(selectedChild)}
-              >
-                <Ionicons
-                  name="save-outline"
-                  size={theme.fontSizes.large}
-                  color={theme.colors.text}
-                  style={{ marginRight: 15 }}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() =>
-                  generateAndShareLoginPdf(
-                    selectedChild?.name,
-                    selectedChild?.email
-                  )
-                }
-              >
-                <Ionicons
-                  name="share-outline"
-                  size={theme.fontSizes.large}
-                  color={theme.colors.text}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.modalContent}
-            showsVerticalScrollIndicator={false}
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: theme.colors.background },
+            ]}
           >
-            {selectedChild && (
-              <>
-                <View
-                  style={[
-                    styles.detailsCard,
-                    { backgroundColor: theme.colors.card },
-                  ]}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
+                <Ionicons
+                  name="arrow-back"
+                  size={theme.fontSizes.large}
+                  color={theme.colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                {selectedChild.name}
+              </Text>
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => openEditModal(selectedChild)}>
+                  <Ionicons
+                    name="pencil-outline"
+                    size={24}
+                    color={theme.colors.text}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDeleteChild(selectedChild)}
+                  style={{ marginLeft: 20 }}
                 >
-                  <View style={styles.detailRow}>
-                    <Ionicons
-                      name="person-outline"
-                      size={20}
-                      color={theme.colors.primary}
-                      style={styles.detailIcon}
-                    />
-                    <View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.secondary },
-                        ]}
-                      >
-                        Nome
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailText,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {selectedChild.name}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Ionicons
-                      name="mail-outline"
-                      size={20}
-                      color={theme.colors.primary}
-                      style={styles.detailIcon}
-                    />
-                    <View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.secondary },
-                        ]}
-                      >
-                        Email da Conta
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailText,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {selectedChild.email || "N/A"}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Ionicons
-                      name="cash-outline"
-                      size={20}
-                      color={theme.colors.primary}
-                      style={styles.detailIcon}
-                    />
-                    <View>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: theme.colors.secondary },
-                        ]}
-                      >
-                        Mesada
-                      </Text>
-                      <Text
-                        style={[
-                          styles.detailText,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {selectedChild.allowance_amount !== null
-                          ? selectedChild.allowance_amount.toLocaleString(
-                              "pt-BR",
-                              { style: "currency", currency: "BRL" }
-                            )
-                          : "Não definida"}
-                        {selectedChild.allowance_frequency
-                          ? ` (${selectedChild.allowance_frequency})`
-                          : ""}
-                      </Text>
-                    </View>
+                  <Ionicons
+                    name="trash-outline"
+                    size={24}
+                    color={theme.colors.danger || "red"}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    generateAndShareLoginPdf(
+                      selectedChild.name,
+                      selectedChild.email
+                    )
+                  }
+                  style={{ marginLeft: 20 }}
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={24}
+                    color={theme.colors.text}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => generateAndShareExpensesPdf(selectedChild)}
+                  style={{ marginLeft: 20 }}
+                >
+                  <Ionicons
+                    name="download-outline"
+                    size={24}
+                    color={theme.colors.text}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <View
+                style={[
+                  styles.detailsCard,
+                  { backgroundColor: theme.colors.card },
+                ]}
+              >
+                <View style={styles.detailRow}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={styles.detailIcon}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.colors.secondary },
+                      ]}
+                    >
+                      Nome
+                    </Text>
+                    <Text
+                      style={[styles.detailText, { color: theme.colors.text }]}
+                    >
+                      {selectedChild.name}
+                    </Text>
                   </View>
                 </View>
-
+                <View style={styles.detailRow}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={styles.detailIcon}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.colors.secondary },
+                      ]}
+                    >
+                      Email da Conta
+                    </Text>
+                    <Text
+                      style={[styles.detailText, { color: theme.colors.text }]}
+                    >
+                      {selectedChild.email || "N/A"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.detailRow, { marginBottom: 0 }]}>
+                  <Ionicons
+                    name="cash-outline"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={styles.detailIcon}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: theme.colors.secondary },
+                      ]}
+                    >
+                      Mesada
+                    </Text>
+                    <Text
+                      style={[styles.detailText, { color: theme.colors.text }]}
+                    >
+                      {selectedChild.allowance_amount !== null
+                        ? selectedChild.allowance_amount.toLocaleString(
+                            "pt-BR",
+                            { style: "currency", currency: "BRL" }
+                          )
+                        : "Não definida"}
+                      {selectedChild.allowance_frequency
+                        ? ` (${selectedChild.allowance_frequency})`
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.detailsCard,
+                  { backgroundColor: theme.colors.card, marginTop: 20 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  Últimas Transações
+                </Text>
+                {selectedChild.expenses.length === 0 ? (
+                  <Text
+                    style={[
+                      styles.emptyMessage,
+                      { color: theme.colors.secondary },
+                    ]}
+                  >
+                    Nenhuma transação registrada.
+                  </Text>
+                ) : (
+                  selectedChild.expenses.map((expense, index) => (
+                    <View
+                      key={expense.id}
+                      style={[
+                        styles.expenseItem,
+                        index !== selectedChild.expenses.length - 1 && {
+                          borderBottomColor: theme.colors.border,
+                          borderBottomWidth: 1,
+                        },
+                      ]}
+                    >
+                      <View style={styles.expenseDetails}>
+                        <Text
+                          style={[
+                            styles.expenseDescription,
+                            { color: theme.colors.text },
+                          ]}
+                        >
+                          {expense.description}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.expenseAmount,
+                            {
+                              color:
+                                expense.type === "income"
+                                  ? theme.colors.primary
+                                  : "red",
+                            },
+                          ]}
+                        >
+                          {expense.type === "income" ? "+ " : "- "}
+                          {expense.amount.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.expenseCategory,
+                          { color: theme.colors.secondary },
+                        ]}
+                      >
+                        Categoria: {expense.category || "N/A"}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+              {Object.keys(selectedChild.categorySummary).length > 0 && (
                 <View
                   style={[
                     styles.detailsCard,
-                    { backgroundColor: theme.colors.card, marginTop: 20 },
+                    {
+                      backgroundColor: theme.colors.card,
+                      marginTop: 20,
+                      alignItems: "center",
+                    },
                   ]}
                 >
                   <Text
@@ -925,142 +824,175 @@ export default function DependentsScreen() {
                       {
                         color: theme.colors.text,
                         borderColor: theme.colors.border,
+                        alignSelf: "stretch",
                       },
                     ]}
                   >
-                    Últimos Gastos
+                    Gastos por Categoria
                   </Text>
-                  {selectedChild.expenses.length === 0 ? (
-                    <Text
-                      style={[
-                        styles.emptyMessage,
-                        { color: theme.colors.secondary },
-                      ]}
-                    >
-                      Nenhum gasto registrado.
-                    </Text>
-                  ) : (
-                    selectedChild.expenses.map((expense, index) => (
-                      <View
-                        key={expense.id}
-                        style={[
-                          styles.expenseItem,
-                          index !== selectedChild.expenses.length - 1 && {
-                            borderBottomColor: theme.colors.border,
-                            borderBottomWidth: 1,
-                          },
-                        ]}
-                      >
-                        <View style={styles.expenseDetails}>
-                          <Text
-                            style={[
-                              styles.expenseDescription,
-                              { color: theme.colors.text },
-                            ]}
-                          >
-                            {expense.description}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.expenseAmount,
-                              {
-                                color:
-                                  expense.type === "income"
-                                    ? theme.colors.primary
-                                    : "red",
-                              },
-                            ]}
-                          >
-                            {expense.type === "income" ? "+ " : "- "}
-                            {expense.amount.toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.expenseCategory,
-                            { color: theme.colors.secondary },
-                          ]}
-                        >
-                          Categoria: {expense.category || "N/A"}
-                        </Text>
-                      </View>
-                    ))
-                  )}
+                  <BarChart
+                    data={{
+                      labels: Object.keys(selectedChild.categorySummary),
+                      datasets: [
+                        { data: Object.values(selectedChild.categorySummary) },
+                      ],
+                    }}
+                    width={width * 0.8}
+                    height={250}
+                    yAxisLabel="R$"
+                    chartConfig={{
+                      backgroundColor: theme.colors.card,
+                      backgroundGradientFrom: theme.colors.card,
+                      backgroundGradientTo: theme.colors.card,
+                      decimalPlaces: 2,
+                      color: (opacity = 1) =>
+                        theme.dark
+                          ? `rgba(255, 255, 255, ${opacity})`
+                          : `rgba(0, 0, 0, ${opacity})`,
+                      labelColor: (opacity = 1) =>
+                        theme.dark
+                          ? `rgba(255, 255, 255, ${opacity})`
+                          : `rgba(0, 0, 0, ${opacity})`,
+                      propsForBackgroundLines: { stroke: theme.colors.border },
+                    }}
+                    verticalLabelRotation={30}
+                    fromZero={true}
+                    style={{ marginVertical: 8, borderRadius: 16 }}
+                  />
                 </View>
+              )}
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
 
-                {selectedChild &&
-                  Object.keys(selectedChild.categorySummary).length > 0 && (
-                    <View
+      {/* --- EDIT MODAL --- */}
+      {selectedChild && (
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={showEditModal}
+          onRequestClose={() => setShowEditModal(false)}
+        >
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons
+                  name="close"
+                  size={theme.fontSizes.large}
+                  color={theme.colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                Editar {selectedChild.name}
+              </Text>
+              <View style={{ width: theme.fontSizes.large }} />
+            </View>
+            <View style={[styles.content, { paddingHorizontal: width * 0.05 }]}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                  },
+                ]}
+                onChangeText={setEditingName}
+                value={editingName}
+                placeholder="Nome do Dependente"
+              />
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                  },
+                ]}
+                onChangeText={setEditingAllowanceAmount}
+                value={editingAllowanceAmount}
+                placeholder="Valor da Mesada (opcional)"
+                keyboardType="numeric"
+              />
+              <View style={styles.frequencyContainer}>
+                <Text
+                  style={[styles.frequencyLabel, { color: theme.colors.text }]}
+                >
+                  Frequência da Mesada:
+                </Text>
+                <View style={styles.frequencyButtons}>
+                  {["Semanal", "Mensal"].map((freq) => (
+                    <TouchableOpacity
+                      key={freq}
                       style={[
-                        styles.detailsCard,
+                        styles.frequencyButton,
                         {
-                          backgroundColor: theme.colors.card,
-                          marginTop: 20,
-                          paddingBottom: 20,
+                          backgroundColor:
+                            editingAllowanceFrequency === freq
+                              ? theme.colors.primary
+                              : theme.colors.card,
+                          borderColor: theme.colors.border,
                         },
                       ]}
+                      onPress={() => setEditingAllowanceFrequency(freq)}
                     >
                       <Text
-                        style={[
-                          styles.sectionTitle,
-                          {
-                            color: theme.colors.text,
-                            borderColor: theme.colors.border,
-                          },
-                        ]}
+                        style={{
+                          color:
+                            editingAllowanceFrequency === freq
+                              ? "#fff"
+                              : theme.colors.text,
+                        }}
                       >
-                        Gastos por Categoria
+                        {freq}
                       </Text>
-                      <BarChart
-                        data={{
-                          labels: Object.keys(selectedChild.categorySummary),
-                          datasets: [
-                            {
-                              data: Object.values(
-                                selectedChild.categorySummary
-                              ),
-                            },
-                          ],
-                        }}
-                        width={width * 0.8}
-                        height={250}
-                        yAxisLabel="R$"
-                        chartConfig={{
-                          backgroundColor: theme.colors.card,
-                          backgroundGradientFrom: theme.colors.card,
-                          backgroundGradientTo: theme.colors.card,
-                          decimalPlaces: 2,
-                          color: (opacity = 1) =>
-                            theme.dark
-                              ? `rgba(255, 255, 255, ${opacity})`
-                              : `rgba(0, 0, 0, ${opacity})`,
-                          labelColor: (opacity = 1) =>
-                            theme.dark
-                              ? `rgba(255, 255, 255, ${opacity})`
-                              : `rgba(0, 0, 0, ${opacity})`,
-                          propsForBackgroundLines: {
-                            stroke: theme.colors.border,
-                          },
-                          propsForLabels: { fontSize: 10 },
-                        }}
-                        verticalLabelRotation={30}
-                        fromZero={true}
-                        style={{ marginVertical: 8, borderRadius: 16 }}
-                      />
-                    </View>
-                  )}
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={[
+                      styles.clearFrequencyButton,
+                      { borderColor: theme.colors.border },
+                    ]}
+                    onPress={() => setEditingAllowanceFrequency(null)}
+                  >
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={24}
+                      color={theme.colors.secondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: theme.colors.primary, marginTop: 20 },
+                ]}
+                onPress={handleUpdateChild}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Salvar Alterações</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
 
+// --- STYLES ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1083,29 +1015,25 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   content: {
-    flex: 1,
     alignItems: "center",
     paddingBottom: height * 0.05,
+    width: "100%",
   },
   title: {
     fontSize: width * 0.06,
     fontWeight: "bold",
-    marginBottom: height * 0.025,
+    marginBottom: height * 0.02,
     alignSelf: "flex-start",
   },
   subtitle: {
     fontSize: width * 0.04,
     textAlign: "center",
-    marginBottom: height * 0.04,
-  },
-  emptyMessage: {
-    fontSize: width * 0.04,
-    textAlign: "center",
-    marginVertical: 20,
+    marginBottom: height * 0.02,
   },
   input: {
     height: height * 0.065,
     borderWidth: 1.5,
+    borderRadius: 10,
     marginBottom: height * 0.02,
     paddingHorizontal: width * 0.04,
     fontSize: width * 0.04,
@@ -1113,45 +1041,14 @@ const styles = StyleSheet.create({
   },
   button: {
     paddingVertical: height * 0.02,
+    borderRadius: 10,
     alignItems: "center",
-    marginBottom: height * 0.025,
     width: "100%",
   },
   buttonText: {
     color: "#fff",
     fontSize: width * 0.045,
     fontWeight: "bold",
-  },
-  frequencyContainer: {
-    width: "100%",
-    marginBottom: height * 0.02,
-  },
-  frequencyLabel: {
-    fontSize: width * 0.04,
-    marginBottom: height * 0.01,
-  },
-  frequencyButtons: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-  },
-  frequencyButton: {
-    flex: 1,
-    paddingVertical: height * 0.015,
-    borderWidth: 1,
-    alignItems: "center",
-    marginHorizontal: width * 0.01,
-  },
-  frequencyButtonText: {
-    fontSize: width * 0.038,
-    fontWeight: "bold",
-  },
-  clearFrequencyButton: {
-    padding: width * 0.02,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: width * 0.01,
   },
   childCard: {
     flexDirection: "row",
@@ -1161,10 +1058,10 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.015,
     borderRadius: 15,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   childIcon: {
     marginRight: width * 0.04,
@@ -1178,6 +1075,7 @@ const styles = StyleSheet.create({
   },
   childAllowance: {
     fontSize: width * 0.035,
+    marginTop: 2,
   },
   modalContainer: {
     flex: 1,
@@ -1187,8 +1085,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: height * 0.025,
     paddingHorizontal: width * 0.05,
+    marginBottom: height * 0.03,
   },
   modalTitle: {
     fontSize: width * 0.05,
@@ -1196,6 +1094,10 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     marginHorizontal: 10,
+  },
+  modalActions: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   modalContent: {
     paddingHorizontal: width * 0.05,
@@ -1253,5 +1155,39 @@ const styles = StyleSheet.create({
   },
   expenseCategory: {
     fontSize: width * 0.035,
+  },
+  emptyMessage: {
+    fontSize: width * 0.04,
+    textAlign: "center",
+    marginVertical: 20,
+  },
+  frequencyContainer: {
+    width: "100%",
+    marginBottom: height * 0.02,
+  },
+  frequencyLabel: {
+    fontSize: width * 0.04,
+    marginBottom: height * 0.01,
+    alignSelf: "flex-start",
+  },
+  frequencyButtons: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  frequencyButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  clearFrequencyButton: {
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 5,
   },
 });
