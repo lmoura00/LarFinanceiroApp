@@ -370,7 +370,7 @@ export default function DashboardScreen() {
           })}
         </Text>
       </View>
-      {profile?.role === "child" && <FinancialTipsCard />}
+      {/* {profile?.role === "child" && <FinancialTipsCard />} */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
