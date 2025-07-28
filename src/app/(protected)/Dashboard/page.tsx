@@ -17,8 +17,8 @@ import { supabase } from "@/supabaseClient";
 import { useTheme } from "@/Hooks/ThemeContext";
 import { useAuth } from "@/Hooks/AuthContext";
 import { Redirect, useRouter, useFocusEffect } from "expo-router";
+import FinancialTipsCard from "@/Components/FinancialTipsCard";
 
-// --- Interfaces ---
 interface Transaction {
   id: string;
   description: string;
@@ -39,15 +39,13 @@ interface ChildDetails extends UserDetails {
   saved_in_goals: number;
 }
 
-// CORREÇÃO 1: Ajustar a interface para corresponder aos dados do Supabase
 interface Medal {
   id: string;
   name: string;
   achieved_at: string;
-  children: { name: string }[] | null; // Alterado para um array de objetos
+  children: { name: string }[] | null;
 }
 
-// --- Dimensions & Colors ---
 const { width, height } = Dimensions.get("window");
 const childColors = [
   "#3498db",
@@ -60,7 +58,6 @@ const childColors = [
 ];
 const parentColor = "#34495e";
 
-// --- Helper Functions ---
 const getCategoryIcon = (category: string | undefined) => {
   switch (category?.toLowerCase()) {
     case "salário":
@@ -373,7 +370,7 @@ export default function DashboardScreen() {
           })}
         </Text>
       </View>
-
+      {profile?.role === "child" && <FinancialTipsCard />}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -692,11 +689,11 @@ const styles = StyleSheet.create({
   },
   headerText: { fontSize: width * 0.045, fontWeight: "bold" },
   balanceSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: height * 0.03,
     padding: 20,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -704,8 +701,8 @@ const styles = StyleSheet.create({
   },
   balanceTitle: { fontSize: width * 0.04 },
   balanceAmount: {
-    fontSize: width * 0.12, 
-    fontWeight: 'bold',
+    fontSize: width * 0.12,
+    fontWeight: "bold",
   },
   actionsScrollViewContent: { paddingVertical: height * 0.01 },
   actionCard: {
