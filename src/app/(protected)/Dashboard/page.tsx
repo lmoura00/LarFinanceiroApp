@@ -349,7 +349,7 @@ export default function DashboardScreen() {
         <Text style={[styles.headerText, { color: theme.colors.text }]}>
           Olá, {profile?.name}!
         </Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={()=> router.push("/(protected)/Notifications/page")}>
           <Ionicons
             name="notifications-outline"
             size={theme.fontSizes.large}

@@ -131,13 +131,24 @@ export default function ProfileScreen() {
         <Text style={[styles.headerText, { color: theme.colors.text }]}>
           O meu Perfil
         </Text>
-        <TouchableOpacity onPress={handleEditProfile}>
-          <Ionicons
-            name="create-outline"
-            size={theme.fontSizes.large}
-            color={theme.colors.text}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => router.push("/(protected)/Notifications/page")}
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={theme.fontSizes.large}
+              color={theme.colors.text}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleEditProfile} style={{ marginLeft: 15 }}>
+            <Ionicons
+              name="create-outline"
+              size={theme.fontSizes.large}
+              color={theme.colors.text}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -251,8 +262,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: width * 0.05,
-    paddingTop: height * 0.06,
+    paddingHorizontal: width * 0.05,
   },
   loadingContainer: {
     flex: 1,
@@ -261,13 +271,20 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: height * 0.06,
     marginBottom: height * 0.025,
   },
   headerText: {
+    flex: 1,
+    left: width * 0.04,
+    textAlign: 'center',
     fontSize: width * 0.05,
     fontWeight: "bold",
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

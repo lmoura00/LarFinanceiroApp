@@ -2,8 +2,7 @@ import React from "react";
 import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/Hooks/ThemeContext";
-import { useAuth } from "@/Hooks/AuthContext"; // Verifique se o caminho está correto aqui
-import { View } from "react-native";
+import { useAuth } from "@/Hooks/AuthContext";
 
 export default function ProtectedLayout() {
   const { theme } = useTheme();
@@ -29,6 +28,8 @@ export default function ProtectedLayout() {
         tabBarStyle: {
           backgroundColor: theme.colors.card,
           borderTopColor: theme.colors.border,
+          marginBottom:0,
+          paddingBottom:10
         },
         tabBarLabelStyle: {
           fontSize: theme.fontSizes.small,
@@ -48,6 +49,13 @@ export default function ProtectedLayout() {
         name="Budget/page"
         options={{
           title: "Orçamento",
+          href: null
+        }}
+      />
+      <Tabs.Screen
+        name="Notifications/page"
+        options={{
+          title: "Notificações", 
           href: null
         }}
       />
@@ -75,7 +83,6 @@ export default function ProtectedLayout() {
         <Tabs.Screen
           name="Dependents/page"
           options={{
-            title: "Dependentes",
             href: null,
           }}
         />
@@ -90,27 +97,10 @@ export default function ProtectedLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="EditProfile/page"
-        options={{
-          href: null,
-          headerShown: false,
-        }}
-      />
-       <Tabs.Screen 
-        name="AddExpense/page"
-        options={{
-          headerShown: false,
-         href: null,
-        }}
-      />
-       <Tabs.Screen 
-        name="Awards/page"
-        options={{
-          headerShown: false,
-         href: null,
-        }}
-      />
+      {/* Telas ocultas */}
+      <Tabs.Screen name="EditProfile/page" options={{ href: null }} />
+      <Tabs.Screen name="AddExpense/page" options={{ href: null }} />
+      <Tabs.Screen name="Awards/page" options={{ href: null }} />
     </Tabs>
   );
 }
