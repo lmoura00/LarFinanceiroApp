@@ -97,6 +97,13 @@ export default function ProtectedLayout() {
          href: null,
         }}
       />
+       <Tabs.Screen 
+        name="Awards/page"
+        options={{
+          headerShown: false,
+         href: null,
+        }}
+      />
     </Tabs>
   );
 }
