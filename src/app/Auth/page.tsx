@@ -26,7 +26,8 @@ import * as Linking from "expo-linking";
 const { width, height } = Dimensions.get("window");
 
 const LAST_EMAIL_KEY = "last_logged_in_email";
-const getBiometricKey = (email: string) => `supabase_refresh_token_biometric_${email}`;
+const getBiometricKey = (email: string) =>
+  `supabase_refresh_token_biometric_${email}`;
 
 export default function AuthScreen() {
   const [email, setEmail] = useState<string>("");
@@ -36,10 +37,14 @@ export default function AuthScreen() {
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [hasBiometricEnrolled, setHasBiometricEnrolled] = useState(false);
-  const [isBiometricEnabledForApp, setIsBiometricEnabledForApp] = useState(false);
+  const [isBiometricEnabledForApp, setIsBiometricEnabledForApp] =
+    useState(false);
   const [lastEmail, setLastEmail] = useState<string | null>(null);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
-  const [biometricData, setBiometricData] = useState<{refreshToken: string; userEmail: string} | null>(null);
+  const [biometricData, setBiometricData] = useState<{
+    refreshToken: string;
+    userEmail: string;
+  } | null>(null);
 
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -75,7 +80,10 @@ export default function AuthScreen() {
           {
             text: "Sim",
             onPress: () => {
-              enableBiometricsForApp(biometricData.refreshToken, biometricData.userEmail);
+              enableBiometricsForApp(
+                biometricData.refreshToken,
+                biometricData.userEmail
+              );
               setShowBiometricPrompt(false);
               setBiometricData(null);
             },
@@ -92,19 +100,26 @@ export default function AuthScreen() {
 
     const compatible = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
-    
+
     setIsBiometricSupported(compatible);
     setHasBiometricEnrolled(enrolled);
 
     if (compatible && enrolled && lastUserEmail) {
-      const biometricToken = await SecureStore.getItemAsync(getBiometricKey(lastUserEmail));
+      const biometricToken = await SecureStore.getItemAsync(
+        getBiometricKey(lastUserEmail)
+      );
       setIsBiometricEnabledForApp(!!biometricToken);
     }
   };
 
-  const handleSignInSuccess = async (refreshToken: string, userEmail: string) => {
+  const handleSignInSuccess = async (
+    refreshToken: string,
+    userEmail: string
+  ) => {
     if (isBiometricSupported && hasBiometricEnrolled) {
-      const currentToken = await SecureStore.getItemAsync(getBiometricKey(userEmail));
+      const currentToken = await SecureStore.getItemAsync(
+        getBiometricKey(userEmail)
+      );
       if (!currentToken) {
         setBiometricData({ refreshToken, userEmail });
         setShowBiometricPrompt(true);
@@ -112,7 +127,10 @@ export default function AuthScreen() {
     }
   };
 
-  const enableBiometricsForApp = async (refreshToken: string, userEmail: string) => {
+  const enableBiometricsForApp = async (
+    refreshToken: string,
+    userEmail: string
+  ) => {
     try {
       const biometricAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: "Autentique para habilitar login biométrico",
@@ -121,7 +139,10 @@ export default function AuthScreen() {
       });
 
       if (biometricAuth.success) {
-        await SecureStore.setItemAsync(getBiometricKey(userEmail), refreshToken);
+        await SecureStore.setItemAsync(
+          getBiometricKey(userEmail),
+          refreshToken
+        );
         setIsBiometricEnabledForApp(true);
       }
     } catch (error) {
@@ -140,7 +161,9 @@ export default function AuthScreen() {
       });
 
       if (biometricAuth.success) {
-        const refreshToken = await SecureStore.getItemAsync(getBiometricKey(lastEmail));
+        const refreshToken = await SecureStore.getItemAsync(
+          getBiometricKey(lastEmail)
+        );
         if (refreshToken) {
           const { data, error } = await supabase.auth.refreshSession({
             refresh_token: refreshToken,
@@ -189,13 +212,16 @@ export default function AuthScreen() {
 
   async function handlePasswordRecovery(): Promise<void> {
     if (!email.trim()) {
-      Alert.alert("Erro", "Por favor, insira seu e-mail para recuperar a senha.");
+      Alert.alert(
+        "Erro",
+        "Por favor, insira seu e-mail para recuperar a senha."
+      );
       return;
     }
-    
-    const redirectUrl = Linking.createURL('/reset-password');
+
+    const redirectUrl = Linking.createURL("/reset-password");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl
+      redirectTo: redirectUrl,
     });
 
     if (error) {
@@ -230,7 +256,7 @@ export default function AuthScreen() {
             />
           </TouchableOpacity>
         </View>
-        
+
         {theme.dark ? (
           <Image
             source={require("../../../assets/images/splash-icon-dark.png")}
@@ -250,7 +276,7 @@ export default function AuthScreen() {
             ? "Bem-vindo(a) de volta!"
             : "Criar sua conta"}
         </Text>
-        
+
         <View style={styles.inputContainer}>
           {!isLoginView && !showPasswordRecovery && (
             <TextInput
@@ -307,7 +333,7 @@ export default function AuthScreen() {
             />
           )}
         </View>
-        
+
         <TouchableOpacity
           style={[
             styles.button,
@@ -342,43 +368,49 @@ export default function AuthScreen() {
           />
         )}
 
-        {isLoginView && !showPasswordRecovery && isBiometricSupported && hasBiometricEnrolled && (
-          <TouchableOpacity
-            style={[
-              styles.biometricButton,
-              {
-                backgroundColor: isBiometricEnabledForApp 
-                  ? theme.colors.primary 
-                  : theme.colors.secondary,
-                borderRadius: theme.borderRadius.m,
-              },
-            ]}
-            onPress={
-              isBiometricEnabledForApp 
-                ? handleBiometricLogin 
-                : () => Alert.alert(
-                    "Biometria disponível", 
-                    "Habilite o login biométrico após fazer login com e-mail e senha."
-                  )
-            }
-            disabled={loading}
-          >
-            <Ionicons
-              name="finger-print-outline"
-              size={theme.fontSizes.large}
-              color="#fff"
-            />
-            <Text style={[styles.buttonText, { marginLeft: width * 0.02 }]}>
-              {isBiometricEnabledForApp 
-                ? "Login com Biometria" 
-                : "Habilitar Biometria"}
-            </Text>
-          </TouchableOpacity>
-        )}
+        {/* {isLoginView &&
+          !showPasswordRecovery &&
+          isBiometricSupported &&
+          hasBiometricEnrolled && (
+            <TouchableOpacity
+              style={[
+                styles.biometricButton,
+                {
+                  backgroundColor: isBiometricEnabledForApp
+                    ? theme.colors.primary
+                    : theme.colors.secondary,
+                  borderRadius: theme.borderRadius.m,
+                },
+              ]}
+              onPress={
+                isBiometricEnabledForApp
+                  ? handleBiometricLogin
+                  : () =>
+                      Alert.alert(
+                        "Biometria disponível",
+                        "Habilite o login biométrico após fazer login com e-mail e senha."
+                      )
+              }
+              disabled={loading}
+            >
+              <Ionicons
+                name="finger-print-outline"
+                size={theme.fontSizes.large}
+                color="#fff"
+              />
+              <Text style={[styles.buttonText, { marginLeft: width * 0.02 }]}>
+                {isBiometricEnabledForApp
+                  ? "Login com Biometria"
+                  : "Habilitar Biometria"}
+              </Text>
+            </TouchableOpacity>
+          )} */}
 
         {!showPasswordRecovery && (
           <TouchableOpacity onPress={() => setIsLoginView(!isLoginView)}>
-            <Text style={[styles.switchText, { color: theme.colors.secondary }]}>
+            <Text
+              style={[styles.switchText, { color: theme.colors.secondary }]}
+            >
               {isLoginView
                 ? "Não tem uma conta? Cadastre-se"
                 : "Já tem uma conta? Faça login"}
@@ -430,9 +462,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: width * 0.08,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: height * 0.05,
-    textAlign: 'center',
+    textAlign: "center",
   },
   inputContainer: {
     marginBottom: height * 0.03,
@@ -443,14 +475,14 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.02,
     paddingHorizontal: width * 0.05,
     fontSize: width * 0.04,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   button: {
     paddingVertical: height * 0.02,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: height * 0.03,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
