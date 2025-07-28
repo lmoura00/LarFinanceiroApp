@@ -57,6 +57,21 @@ const childColors = [
   "#e67e22",
 ];
 const parentColor = "#34495e";
+const NotificationBadge = ({ count }: { count: number }) => {
+  const { theme } = useTheme();
+  if (count === 0) return null;
+
+  return (
+    <View
+      style={[
+        styles.notificationBadge,
+        { backgroundColor: theme.colors.danger },
+      ]}
+    >
+      <Text style={styles.notificationBadgeText}>{count}</Text>
+    </View>
+  );
+};
 
 const getCategoryIcon = (category: string | undefined) => {
   switch (category?.toLowerCase()) {
@@ -127,7 +142,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
-  const { user, profile, loading, session } = useAuth();
+  const { user, profile, loading, session, unreadNotifications } = useAuth();
   const router = useRouter();
 
   const fetchData = useCallback(
@@ -349,12 +364,17 @@ export default function DashboardScreen() {
         <Text style={[styles.headerText, { color: theme.colors.text }]}>
           Olá, {profile?.name}!
         </Text>
-        <TouchableOpacity onPress={()=> router.push("/(protected)/Notifications/page")}>
-          <Ionicons
-            name="notifications-outline"
-            size={theme.fontSizes.large}
-            color={theme.colors.text}
-          />
+        <TouchableOpacity
+          onPress={() => router.push("/(protected)/Notifications/page")}
+        >
+          <View>
+            <Ionicons
+              name="notifications-outline"
+              size={theme.fontSizes.large}
+              color={theme.colors.text}
+            />
+            <NotificationBadge count={unreadNotifications} />
+          </View>
         </TouchableOpacity>
       </View>
       <View
@@ -838,6 +858,22 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: "#fff",
     fontSize: width * 0.04,
+    fontWeight: "bold",
+  },
+  notificationBadge: {
+    position: "absolute",
+    right: -6,
+    top: -3,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: "#fff",
+    fontSize: 10,
     fontWeight: "bold",
   },
 });

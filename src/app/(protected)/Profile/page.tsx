@@ -28,9 +28,33 @@ const AchievementBadge = ({ medalName }: { medalName: string }) => {
   );
 };
 
+const NotificationBadge = ({ count }: { count: number }) => {
+  const { theme } = useTheme();
+  if (count === 0) return null;
+
+  return (
+    <View
+      style={[
+        styles.notificationBadge,
+        { backgroundColor: theme.colors.danger },
+      ]}
+    >
+      <Text style={styles.notificationBadgeText}>{count}</Text>
+    </View>
+  );
+};
+
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
-  const { user, profile, loading, signOut, session } = useAuth();
+  const {
+    user,
+    profile,
+    loading,
+    signOut,
+    session,
+    unreadNotifications,
+    markNotificationsAsRead,
+  } = useAuth();
   const [parentName, setParentName] = useState<string | null>(null);
   const [fetchingParentName, setFetchingParentName] = useState(false);
   const [medals, setMedals] = useState<any[]>([]);
@@ -61,7 +85,10 @@ export default function ProfileScreen() {
                 .eq("id", childData.parent_id)
                 .single();
 
-            if (parentProfileError && parentProfileError.code !== "PGRST116") {
+            if (
+              parentProfileError &&
+              parentProfileError.code !== "PGRST116"
+            ) {
               throw parentProfileError;
             }
             setParentName(parentProfileData?.name || null);
@@ -114,6 +141,11 @@ export default function ProfileScreen() {
     router.push("/(protected)/EditProfile/page");
   };
 
+  const handleGoToNotifications = () => {
+    markNotificationsAsRead();
+    router.push("/(protected)/Notifications/page");
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -132,14 +164,15 @@ export default function ProfileScreen() {
           O meu Perfil
         </Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => router.push("/(protected)/Notifications/page")}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={theme.fontSizes.large}
-              color={theme.colors.text}
-            />
+          <TouchableOpacity onPress={handleGoToNotifications}>
+            <View>
+              <Ionicons
+                name="notifications-outline"
+                size={theme.fontSizes.large}
+                color={theme.colors.text}
+              />
+              <NotificationBadge count={unreadNotifications} />
+            </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleEditProfile} style={{ marginLeft: 15 }}>
             <Ionicons
@@ -278,13 +311,29 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     left: width * 0.04,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: width * 0.05,
     fontWeight: "bold",
   },
   headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  notificationBadge: {
+    position: "absolute",
+    right: -6,
+    top: -3,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   content: {
     flex: 1,
