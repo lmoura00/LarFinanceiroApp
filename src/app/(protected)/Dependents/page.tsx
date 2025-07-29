@@ -26,7 +26,6 @@ const { width, height } = Dimensions.get("window");
 
 const BIOMETRIC_KEY = "supabase_refresh_token_biometric";
 
-// --- INTERFACES ---
 interface Child {
   id: string;
   name: string;
@@ -52,13 +51,11 @@ interface ChildDetail extends Child {
 
 export default function DependentsScreen() {
   const { theme, toggleTheme } = useTheme();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
 
-  // --- STATE MANAGEMENT ---
   const [children, setChildren] = useState<Child[]>([]);
   const [fetchingChildren, setFetchingChildren] = useState(true);
 
-  // Add Child State
   const [newChildName, setNewChildName] = useState("");
   const [newChildEmail, setNewChildEmail] = useState("");
   const [newChildAllowanceAmount, setNewChildAllowanceAmount] = useState("");
@@ -67,13 +64,11 @@ export default function DependentsScreen() {
   >(null);
   const [addingChild, setAddingChild] = useState(false);
 
-  // View/Edit/Delete State
   const [selectedChild, setSelectedChild] = useState<ChildDetail | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [fetchingChildDetails, setFetchingChildDetails] = useState(false);
 
-  // Edit State
   const [editingName, setEditingName] = useState("");
   const [editingAllowanceAmount, setEditingAllowanceAmount] = useState("");
   const [editingAllowanceFrequency, setEditingAllowanceFrequency] = useState<
@@ -81,7 +76,11 @@ export default function DependentsScreen() {
   >("");
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // --- DATA FETCHING ---
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferComment, setTransferComment] = useState("");
+
   useEffect(() => {
     if (user) {
       fetchChildren();
@@ -158,7 +157,6 @@ export default function DependentsScreen() {
     }
   };
 
-  // --- CRUD OPERATIONS ---
   const handleAddChild = async () => {
     if (!newChildName.trim() || !newChildEmail.trim()) {
       Alert.alert("Erro", "O nome e o e-mail do dependente são obrigatórios.");
@@ -194,14 +192,12 @@ export default function DependentsScreen() {
         );
 
       const childUserId = userData.user.id;
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: childUserId,
-          role: "child",
-          email: newChildEmail,
-          name: newChildName,
-        });
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: childUserId,
+        role: "child",
+        email: newChildEmail,
+        name: newChildName,
+      });
       if (profileError) throw profileError;
 
       const amountToAdd = newChildAllowanceAmount.trim()
@@ -232,9 +228,7 @@ export default function DependentsScreen() {
     } catch (error: any) {
       Alert.alert("Erro ao Adicionar", error.message);
     } finally {
-      if (originalSessionData) {
-        await supabase.auth.setSession(originalSessionData);
-      }
+      await signOut();
       setAddingChild(false);
     }
   };
@@ -310,7 +304,7 @@ export default function DependentsScreen() {
               if (error) throw error;
 
               Alert.alert("Sucesso", `${child.name} foi excluído.`);
-              fetchChildren(); // Refresh the list
+              fetchChildren();
             } catch (error: any) {
               Alert.alert(
                 "Erro ao Excluir",
@@ -323,7 +317,58 @@ export default function DependentsScreen() {
     );
   };
 
-  // --- PDF GENERATION ---
+  const openTransferModal = () => {
+    setShowDetailsModal(false);
+    setShowTransferModal(true);
+  };
+
+  const handleTransfer = async () => {
+    if (!selectedChild) return;
+
+    const amount = parseFloat(transferAmount.replace(",", "."));
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert(
+        "Erro",
+        "Por favor, insira um valor de transferência válido."
+      );
+      return;
+    }
+
+    setIsTransferring(true);
+    try {
+      const { error } = await supabase.from("expenses").insert({
+        user_id: selectedChild.id,
+        amount: amount,
+        description: transferComment.trim() || "Transferência do responsável",
+        category: "Transferência",
+        type: "income",
+        expense_date: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      Alert.alert(
+        "Sucesso!",
+        `Você transferiu ${amount.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })} para ${selectedChild.name}.`
+      );
+
+      setShowTransferModal(false);
+      setTransferAmount("");
+      setTransferComment("");
+      fetchChildren();
+    } catch (error: any) {
+      Alert.alert(
+        "Erro na Transferência",
+        "Não foi possível completar a operação. " + error.message
+      );
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   const generateAndShareLoginPdf = async (
     childName: string | null,
     childEmail: string | null
@@ -411,7 +456,6 @@ export default function DependentsScreen() {
     }
   };
 
-  // --- RENDER ---
   if (authLoading || fetchingChildren) {
     return (
       <View
@@ -444,7 +488,6 @@ export default function DependentsScreen() {
         <View style={{ width: theme.fontSizes.large }} />
       </View>
 
-      {/* --- ADD CHILD FORM --- */}
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.colors.text }]}>
           Adicionar Novo Dependente
@@ -494,6 +537,53 @@ export default function DependentsScreen() {
           placeholderTextColor={theme.colors.secondary}
           keyboardType="numeric"
         />
+        <View style={styles.frequencyContainer}>
+          <Text style={[styles.frequencyLabel, { color: theme.colors.text }]}>
+            Frequência da Mesada (opcional):
+          </Text>
+          <View style={styles.frequencyButtons}>
+            {["Semanal", "Mensal"].map((freq) => (
+              <TouchableOpacity
+                key={freq}
+                style={[
+                  styles.frequencyButton,
+                  {
+                    backgroundColor:
+                      newChildAllowanceFrequency === freq
+                        ? theme.colors.primary
+                        : theme.colors.card,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                onPress={() => setNewChildAllowanceFrequency(freq)}
+              >
+                <Text
+                  style={{
+                    color:
+                      newChildAllowanceFrequency === freq
+                        ? "#fff"
+                        : theme.colors.text,
+                  }}
+                >
+                  {freq}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[
+                styles.clearFrequencyButton,
+                { borderColor: theme.colors.border },
+              ]}
+              onPress={() => setNewChildAllowanceFrequency(null)}
+            >
+              <Ionicons
+                name="close-circle-outline"
+                size={24}
+                color={theme.colors.secondary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
         <TouchableOpacity
           style={[styles.button, { backgroundColor: theme.colors.primary }]}
           onPress={handleAddChild}
@@ -507,7 +597,6 @@ export default function DependentsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* --- CHILDREN LIST --- */}
       <View style={styles.content}>
         <Text
           style={[
@@ -575,7 +664,6 @@ export default function DependentsScreen() {
         )}
       </View>
 
-      {/* --- DETAILS MODAL --- */}
       {selectedChild && (
         <Modal
           animationType="slide"
@@ -606,6 +694,16 @@ export default function DependentsScreen() {
                     name="pencil-outline"
                     size={24}
                     color={theme.colors.text}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => openTransferModal()}
+                  style={{ marginLeft: 20 }}
+                >
+                  <Ionicons
+                    name="cash-outline"
+                    size={24}
+                    color={theme.colors.primary}
                   />
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -866,7 +964,6 @@ export default function DependentsScreen() {
         </Modal>
       )}
 
-      {/* --- EDIT MODAL --- */}
       {selectedChild && (
         <Modal
           animationType="slide"
@@ -988,11 +1085,85 @@ export default function DependentsScreen() {
           </View>
         </Modal>
       )}
+
+      {selectedChild && (
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={showTransferModal}
+          onRequestClose={() => setShowTransferModal(false)}
+        >
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowTransferModal(false)}>
+                <Ionicons
+                  name="close"
+                  size={theme.fontSizes.large}
+                  color={theme.colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                Transferir para {selectedChild.name}
+              </Text>
+              <View style={{ width: theme.fontSizes.large }} />
+            </View>
+            <View style={[styles.content, { paddingHorizontal: width * 0.05 }]}>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                  },
+                ]}
+                onChangeText={setTransferAmount}
+                value={transferAmount}
+                placeholder="Valor da Transferência (Ex: 50,00)"
+                placeholderTextColor={theme.colors.secondary}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                  },
+                ]}
+                onChangeText={setTransferComment}
+                value={transferComment}
+                placeholder="Comentário (opcional)"
+                placeholderTextColor={theme.colors.secondary}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: theme.colors.primary, marginTop: 20 },
+                ]}
+                onPress={handleTransfer}
+                disabled={isTransferring}
+              >
+                {isTransferring ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Confirmar Transferência</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
 
-// --- STYLES ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,

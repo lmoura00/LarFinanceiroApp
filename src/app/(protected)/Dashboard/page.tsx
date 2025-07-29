@@ -57,6 +57,7 @@ const childColors = [
   "#e67e22",
 ];
 const parentColor = "#34495e";
+
 const NotificationBadge = ({ count }: { count: number }) => {
   const { theme } = useTheme();
   if (count === 0) return null;
@@ -390,7 +391,7 @@ export default function DashboardScreen() {
           })}
         </Text>
       </View>
-      {/* {profile?.role === "child" && <FinancialTipsCard />} */}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -495,39 +496,69 @@ export default function DashboardScreen() {
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
             Saldos dos Dependentes
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.balancesScrollViewContent}
-          >
-            {childrenDetails.map((child, index) => (
-              <View
-                key={child.id}
-                style={[
-                  styles.balanceCard,
-                  { backgroundColor: childColors[index % childColors.length] },
-                ]}
-              >
-                <Text style={styles.balanceCardName}>{child.name}</Text>
-                <Text style={styles.balanceCardLabel}>Disponível:</Text>
-                <Text style={styles.balanceCardAmount}>
-                  {child.balance.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </Text>
-                {child.saved_in_goals > 0 && (
-                  <Text style={styles.balanceCardSaved}>
-                    Em metas:{" "}
-                    {child.saved_in_goals.toLocaleString("pt-BR", {
+          {childrenDetails.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.balancesScrollViewContent}
+            >
+              {childrenDetails.map((child, index) => (
+                <View
+                  key={child.id}
+                  style={[
+                    styles.balanceCard,
+                    { backgroundColor: childColors[index % childColors.length] },
+                  ]}
+                >
+                  <Text style={styles.balanceCardName}>{child.name}</Text>
+                  <Text style={styles.balanceCardLabel}>Disponível:</Text>
+                  <Text style={styles.balanceCardAmount}>
+                    {child.balance.toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
                     })}
                   </Text>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+                  {child.saved_in_goals > 0 && (
+                    <Text style={styles.balanceCardSaved}>
+                      Em metas:{" "}
+                      {child.saved_in_goals.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View
+              style={[
+                styles.noDependentsContainer,
+                { backgroundColor: theme.colors.card },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.noTransactionsText,
+                  { color: theme.colors.secondary, marginTop: 0, marginBottom: 20 },
+                ]}
+              >
+                Nenhum dependente cadastrado.
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.addDependentButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={() => router.push("/(protected)/Dependents/page")}
+              >
+                <Ionicons name="add-circle-outline" size={22} color="#fff" />
+                <Text style={styles.addDependentButtonText}>
+                  Adicionar Dependente
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
@@ -794,6 +825,31 @@ const styles = StyleSheet.create({
     fontSize: width * 0.035,
     fontWeight: "500",
     marginTop: 5,
+  },
+  noDependentsContainer: {
+    padding: 20,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  addDependentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 10,
+  },
+  addDependentButtonText: {
+    color: "#fff",
+    fontSize: width * 0.04,
+    fontWeight: "bold",
+    marginLeft: 10,
   },
   transactionGroup: { marginBottom: height * 0.02 },
   transactionDate: {

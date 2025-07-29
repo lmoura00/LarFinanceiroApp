@@ -10,7 +10,6 @@ A plataforma utiliza **inteligência artificial (Google Gemini)** para gerar dic
 
 ### Para Todos os Usuários
 * **Autenticação Segura:** Cadastro e login com e-mail e senha, com opção de recuperação de senha.
-* **Login Biométrico:** Suporte para login rápido e seguro usando a biometria do dispositivo 🤳.
 * **Edição de Perfil:** Atualize o nome e altere a senha diretamente no aplicativo.
 * **Dicas Financeiras com IA:** Receba dicas financeiras inteligentes e personalizadas, geradas pelo Google Gemini, com base no seu histórico de transações 💡.
 * **Tema Dinâmico:** Alterne entre os modos claro (☀️) e escuro (🌙) com persistência da preferência do usuário.
