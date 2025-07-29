@@ -450,7 +450,7 @@ export default function DashboardScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-
+      {profile?.role === "child" && <FinancialTipsCard />}
       {familyMedals.length > 0 && (
         <View style={styles.transactionsSection}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
@@ -507,7 +507,9 @@ export default function DashboardScreen() {
                   key={child.id}
                   style={[
                     styles.balanceCard,
-                    { backgroundColor: childColors[index % childColors.length] },
+                    {
+                      backgroundColor: childColors[index % childColors.length],
+                    },
                   ]}
                 >
                   <Text style={styles.balanceCardName}>{child.name}</Text>
@@ -540,7 +542,11 @@ export default function DashboardScreen() {
               <Text
                 style={[
                   styles.noTransactionsText,
-                  { color: theme.colors.secondary, marginTop: 0, marginBottom: 20 },
+                  {
+                    color: theme.colors.secondary,
+                    marginTop: 0,
+                    marginBottom: 20,
+                  },
                 ]}
               >
                 Nenhum dependente cadastrado.
