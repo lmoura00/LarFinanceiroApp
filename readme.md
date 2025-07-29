@@ -5,10 +5,18 @@
 O **Lar Financeiro** é um aplicativo móvel de educação financeira familiar, construído com React Native e Expo. Ele foi projetado para ajudar pais a ensinarem seus filhos a gerenciar dinheiro de forma eficaz, definindo mesadas, metas de poupança e acompanhando despesas.
 
 A plataforma utiliza **inteligência artificial (Google Gemini)** para gerar dicas financeiras personalizadas com base nos hábitos de gastos dos usuários, tornando o aprendizado financeiro mais interativo e relevante.
+## Screenshots:
+<img width="395" height="861" alt="Captura de tela 2025-07-29 184547" src="https://github.com/user-attachments/assets/71c04b7f-6f5c-461b-870f-3efa1e94cfe2" />
+<img width="395" height="853" alt="Captura de tela 2025-07-29 184556" src="https://github.com/user-attachments/assets/1f61cd92-a168-4705-8b75-ebcd8ad6b6a7" />
+<img width="399" height="850" alt="Captura de tela 2025-07-29 184612" src="https://github.com/user-attachments/assets/4497d824-2b19-43d3-acaa-86f1b24f30bc" />
+<img width="388" height="859" alt="Captura de tela 2025-07-29 184630" src="https://github.com/user-attachments/assets/1adee4ed-f3c4-4795-83a3-798aeaca027f" />
+<img width="400" height="839" alt="Captura de tela 2025-07-29 185020" src="https://github.com/user-attachments/assets/1f1452b3-9ebf-455f-bd25-e6cc3f84e704" />
+
 
 ## ✨ Funcionalidades Principais
 
 ### Para Todos os Usuários
+
 * **Autenticação Segura:** Cadastro e login com e-mail e senha, com opção de recuperação de senha.
 * **Edição de Perfil:** Atualize o nome e altere a senha diretamente no aplicativo.
 * **Dicas Financeiras com IA:** Receba dicas financeiras inteligentes e personalizadas, geradas pelo Google Gemini, com base no seu histórico de transações 💡.
