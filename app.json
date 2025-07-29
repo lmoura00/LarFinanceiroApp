@@ -47,6 +47,12 @@
         {
           "faceIDPermission": "Permitir que Lar Financeiro tenha acesso ao FaceID."
         }
+      ],
+       [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
       ]
     ],
     "experiments": {
