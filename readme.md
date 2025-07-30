@@ -67,6 +67,12 @@ Siga estas instruções para obter uma cópia do projeto e executá-lo em sua m�
 * Expo CLI (`npm install -g expo-cli`)
 * Conta no Supabase
 * Chave de API do Google Gemini
+* ENV:
+* EXPO_PUBLIC_API_URL="https://ogwawiodxxwkshvdpudb.supabase.co"
+EXPO_PUBLIC_API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9nd2F3aW9keHh3a3NodmRwdWRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3NTMxMjIsImV4cCI6MjA2ODMyOTEyMn0.FxzyJHMEWf6Pq6Ox_1PyF3LwQLlu-eUxLapcJbdf1W4"
+GOOGLE_GEMINI_API_KEY = "AIzaSyDTwBGsxf30oBjHydUYBLaZNQAKQykdO3U"
+GOOGLE_MAPS_API_KEY = "AIzaSyDUyp7OcPnMcwwQejUCRkqGL4hdKd3wq2k"
+EXPO_PUBLIC_IMGBB_API_KEY = "7d991af21840f0ba40bd39ac33f64657"
 
 ### Instalação
 
