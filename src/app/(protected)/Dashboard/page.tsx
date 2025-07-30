@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,17 @@ import {
   Dimensions,
   Modal,
   RefreshControl,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/supabaseClient";
 import { useTheme } from "@/Hooks/ThemeContext";
 import { useAuth } from "@/Hooks/AuthContext";
 import { Redirect, useRouter, useFocusEffect } from "expo-router";
+import MapView, { Marker } from "react-native-maps";
+import { BlurView } from "expo-blur"; // Importar BlurView
 import FinancialTipsCard from "@/Components/FinancialTipsCard";
+
 
 interface Transaction {
   id: string;
@@ -26,19 +30,22 @@ interface Transaction {
   type: "income" | "expense";
   category?: string;
   expense_date: string;
+  receipt_image_url?: string | null;
+  location_coords?: Coordinates | null;
 }
-
 interface UserDetails {
   id: string;
   name: string;
   balance: number;
   transactions: Transaction[];
 }
-
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
 interface ChildDetails extends UserDetails {
   saved_in_goals: number;
 }
-
 interface Medal {
   id: string;
   name: string;
@@ -46,7 +53,9 @@ interface Medal {
   children: { name: string }[] | null;
 }
 
+// Constantes
 const { width, height } = Dimensions.get("window");
+const SPACING = 20;
 const childColors = [
   "#3498db",
   "#e74c3c",
@@ -56,23 +65,6 @@ const childColors = [
   "#1abc9c",
   "#e67e22",
 ];
-const parentColor = "#34495e";
-
-const NotificationBadge = ({ count }: { count: number }) => {
-  const { theme } = useTheme();
-  if (count === 0) return null;
-
-  return (
-    <View
-      style={[
-        styles.notificationBadge,
-        { backgroundColor: theme.colors.danger },
-      ]}
-    >
-      <Text style={styles.notificationBadgeText}>{count}</Text>
-    </View>
-  );
-};
 
 const getCategoryIcon = (category: string | undefined) => {
   switch (category?.toLowerCase()) {
@@ -94,7 +86,6 @@ const getCategoryIcon = (category: string | undefined) => {
       return "wallet-outline";
   }
 };
-
 const groupTransactionsByDate = (transactions: Transaction[]) => {
   const groups = transactions.reduce((acc, tx) => {
     const date = new Date(tx.expense_date).toLocaleDateString("pt-BR", {
@@ -133,6 +124,10 @@ const groupTransactionsByDate = (transactions: Transaction[]) => {
 };
 
 export default function DashboardScreen() {
+  const { theme, toggleTheme } = useTheme();
+  const { user, profile, loading, session, unreadNotifications } = useAuth();
+  const router = useRouter();
+
   const [currentUserDetails, setCurrentUserDetails] =
     useState<UserDetails | null>(null);
   const [childrenDetails, setChildrenDetails] = useState<ChildDetails[]>([]);
@@ -142,25 +137,19 @@ export default function DashboardScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { theme, toggleTheme } = useTheme();
-  const { user, profile, loading, session, unreadNotifications } = useAuth();
-  const router = useRouter();
 
   const fetchData = useCallback(
     async (isRefreshing = false) => {
       if (!user || !profile) return;
       if (isRefreshing) setRefreshing(true);
-
       try {
         const isParent =
           profile.role === "admin" || profile.role === "responsible";
         let parentIdForMedalFetch = user.id;
-
         if (isParent) {
           const { data: parentTransactions, error: parentTxError } =
             await supabase.from("expenses").select("*").eq("user_id", user.id);
           if (parentTxError) throw parentTxError;
-
           const parentIncome =
             parentTransactions
               ?.filter((tx) => tx.type === "income")
@@ -169,13 +158,11 @@ export default function DashboardScreen() {
             parentTransactions
               ?.filter((tx) => tx.type === "expense")
               .reduce((sum, tx) => sum + tx.amount, 0) || 0;
-
           const { data: children, error: childrenError } = await supabase
             .from("children")
             .select("id, name, allowance_amount")
             .eq("parent_id", user.id);
           if (childrenError) throw childrenError;
-
           const totalAllowancePaid =
             children?.reduce(
               (sum, child) => sum + (child.allowance_amount || 0),
@@ -183,14 +170,12 @@ export default function DashboardScreen() {
             ) || 0;
           const parentFinalBalance =
             parentIncome - parentExpenses - totalAllowancePaid;
-
           setCurrentUserDetails({
             id: user.id,
             name: profile.name || "Responsável",
             balance: parentFinalBalance,
             transactions: parentTransactions || [],
           });
-
           if (!children || children.length === 0) {
             setChildrenDetails([]);
           } else {
@@ -201,13 +186,11 @@ export default function DashboardScreen() {
                 .select("*")
                 .in("user_id", childrenIds);
             if (expensesError) throw expensesError;
-
             const { data: allChildGoals, error: goalsError } = await supabase
               .from("goals")
               .select("child_id, current_amount")
               .in("child_id", childrenIds);
             if (goalsError) throw goalsError;
-
             const childDetailsData = children.map((child) => {
               const transactions =
                 allChildTransactions?.filter((e) => e.user_id === child.id) ||
@@ -241,16 +224,13 @@ export default function DashboardScreen() {
             .eq("id", user.id)
             .single();
           if (childError && childError.code !== "PGRST116") throw childError;
-
           parentIdForMedalFetch = childInfo?.parent_id || "";
           const allowance = childInfo?.allowance_amount || 0;
-
           const { data: childTransactions, error: txError } = await supabase
             .from("expenses")
             .select("*")
             .eq("user_id", user.id);
           if (txError) throw txError;
-
           const income =
             childTransactions
               ?.filter((tx) => tx.type === "income")
@@ -260,7 +240,6 @@ export default function DashboardScreen() {
               ?.filter((tx) => tx.type === "expense")
               .reduce((sum, tx) => sum + tx.amount, 0) || 0;
           const childBalance = allowance + income - expenses;
-
           setCurrentUserDetails({
             id: user.id,
             name: profile.name,
@@ -269,7 +248,6 @@ export default function DashboardScreen() {
           });
           setChildrenDetails([]);
         }
-
         if (parentIdForMedalFetch) {
           const { data: familyChildren, error: familyChildrenError } =
             await supabase
@@ -277,7 +255,6 @@ export default function DashboardScreen() {
               .select("id")
               .eq("parent_id", parentIdForMedalFetch);
           if (familyChildrenError) throw familyChildrenError;
-
           const familyIds = familyChildren.map((c) => c.id);
           if (familyIds.length > 0) {
             const { data: medalsData, error: medalsError } = await supabase
@@ -306,15 +283,10 @@ export default function DashboardScreen() {
       }
     }, [user, profile, fetchData])
   );
-  const onRefresh = () => {
-    fetchData(true);
-  };
+  const onRefresh = () => fetchData(true);
   const handleTransactionPress = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setIsModalVisible(true);
-  };
-  const handleAddExpensePress = () => {
-    router.push("/(protected)/AddExpense/page");
   };
 
   if (loading && !refreshing) {
@@ -325,7 +297,7 @@ export default function DashboardScreen() {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <ActivityIndicator size="large" color={theme.colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -336,606 +308,447 @@ export default function DashboardScreen() {
 
   const isParent = profile?.role === "admin" || profile?.role === "responsible";
   const mainBalance = currentUserDetails?.balance ?? 0;
-  const mainBalanceTitle = isParent ? "Meu Saldo" : "Saldo da Mesada";
   const groupedUserTransactions = groupTransactionsByDate(
     currentUserDetails?.transactions || []
   );
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={theme.colors.primary}
-        />
-      }
-    >
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleTheme}>
-          <Ionicons
-            name={theme.dark ? "sunny" : "moon"}
-            size={theme.fontSizes.large}
-            color={theme.colors.text}
-          />
-        </TouchableOpacity>
-        <Text style={[styles.headerText, { color: theme.colors.text }]}>
-          Olá, {profile?.name}!
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push("/(protected)/Notifications/page")}
-        >
-          <View>
-            <Ionicons
-              name="notifications-outline"
-              size={theme.fontSizes.large}
-              color={theme.colors.text}
-            />
-            <NotificationBadge count={unreadNotifications} />
-          </View>
-        </TouchableOpacity>
-      </View>
-      <View
-        style={[styles.balanceSection, { backgroundColor: theme.colors.card }]}
-      >
-        <Text style={[styles.balanceTitle, { color: theme.colors.secondary }]}>
-          {mainBalanceTitle}
-        </Text>
-        <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>
-          {mainBalance.toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          })}
-        </Text>
-      </View>
-
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.actionsScrollViewContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
-          onPress={handleAddExpensePress}
-        >
-          <Ionicons
-            name="add-circle-outline"
-            size={theme.fontSizes.xLarge}
-            color={theme.colors.text}
-          />
-          <Text style={[styles.actionText, { color: theme.colors.text }]}>
-            Adicionar Transação
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
-          onPress={() => router.push("/(protected)/Goals/page")}
-        >
-          <Ionicons
-            name="wallet-outline"
-            size={theme.fontSizes.xLarge}
-            color={theme.colors.text}
-          />
-          <Text style={[styles.actionText, { color: theme.colors.text }]}>
-            Metas
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
-          onPress={() => router.push("/(protected)/Awards/page")}
-        >
-          <Ionicons
-            name="medal-outline"
-            size={theme.fontSizes.xLarge}
-            color={theme.colors.text}
-          />
-          <Text style={[styles.actionText, { color: theme.colors.text }]}>
-            Prêmios
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
-          onPress={() => router.push("/(protected)/Budget/page")}
-        >
-          <Ionicons
-            name="bar-chart-outline"
-            size={theme.fontSizes.xLarge}
-            color={theme.colors.text}
-          />
-          <Text style={[styles.actionText, { color: theme.colors.text }]}>
-            Orçamento
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-      {profile?.role === "child" && <FinancialTipsCard />}
-      {familyMedals.length > 0 && (
-        <View style={styles.transactionsSection}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Mural de Conquistas
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.medalsScrollViewContent}
-          >
-            {familyMedals.map((medal) => (
-              <View
-                key={medal.id}
-                style={[
-                  styles.medalCard,
-                  { backgroundColor: theme.colors.card },
-                ]}
-              >
-                <Ionicons name="medal" size={30} color="#FFD700" />
-                <View style={styles.medalInfo}>
-                  <Text
-                    style={[styles.medalTitle, { color: theme.colors.text }]}
-                  >
-                    {medal.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.medalChild,
-                      { color: theme.colors.secondary },
-                    ]}
-                  >
-                    por {medal.children?.name || "Dependente"}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
-      {isParent && (
-        <View style={styles.transactionsSection}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Saldos dos Dependentes
-          </Text>
-          {childrenDetails.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.balancesScrollViewContent}
+        <View style={styles.header}>
+          <View>
+            <Text
+              style={[styles.headerGreeting, { color: theme.colors.secondary }]}
             >
-              {childrenDetails.map((child, index) => (
-                <View
-                  key={child.id}
-                  style={[
-                    styles.balanceCard,
-                    {
-                      backgroundColor: childColors[index % childColors.length],
-                    },
-                  ]}
-                >
-                  <Text style={styles.balanceCardName}>{child.name}</Text>
-                  <Text style={styles.balanceCardLabel}>Disponível:</Text>
-                  <Text style={styles.balanceCardAmount}>
-                    {child.balance.toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                  </Text>
-                  {child.saved_in_goals > 0 && (
-                    <Text style={styles.balanceCardSaved}>
-                      Em metas:{" "}
-                      {child.saved_in_goals.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <View
-              style={[
-                styles.noDependentsContainer,
-                { backgroundColor: theme.colors.card },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.noTransactionsText,
-                  {
-                    color: theme.colors.secondary,
-                    marginTop: 0,
-                    marginBottom: 20,
-                  },
-                ]}
-              >
-                Nenhum dependente cadastrado.
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.addDependentButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-                onPress={() => router.push("/(protected)/Dependents/page")}
-              >
-                <Ionicons name="add-circle-outline" size={22} color="#fff" />
-                <Text style={styles.addDependentButtonText}>
-                  Adicionar Dependente
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
-
-      <View style={styles.transactionsSection}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-          Transações Recentes
-        </Text>
-        {Object.keys(groupedUserTransactions).length > 0 ? (
-          Object.entries(groupedUserTransactions).map(
-            ([date, transactions]) => (
-              <View key={date} style={styles.transactionGroup}>
-                <Text
-                  style={[
-                    styles.transactionDate,
-                    { color: theme.colors.secondary },
-                  ]}
-                >
-                  {date}
-                </Text>
-                {transactions.map((tx) => (
-                  <TouchableOpacity
-                    key={tx.id}
-                    style={[
-                      styles.transactionItem,
-                      { backgroundColor: theme.colors.card },
-                    ]}
-                    onPress={() => handleTransactionPress(tx)}
-                  >
-                    <View
-                      style={[
-                        styles.transactionIconContainer,
-                        {
-                          backgroundColor: theme.dark
-                            ? theme.colors.background
-                            : theme.colors.border,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={getCategoryIcon(tx.category)}
-                        size={theme.fontSizes.medium}
-                        color={
-                          tx.type === "income"
-                            ? theme.colors.primary
-                            : theme.colors.text
-                        }
-                      />
-                    </View>
-                    <View style={styles.transactionDetails}>
-                      <Text
-                        style={[
-                          styles.transactionDescription,
-                          { color: theme.colors.text },
-                        ]}
-                      >
-                        {tx.description}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.transactionCategory,
-                          { color: theme.colors.secondary },
-                        ]}
-                      >
-                        {tx.category}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.transactionAmount,
-                        {
-                          color:
-                            tx.type === "income"
-                              ? theme.colors.primary
-                              : theme.colors.text,
-                        },
-                      ]}
-                    >
-                      {tx.type === "income" ? "+" : "-"}
-                      {tx.amount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )
-          )
-        ) : (
-          <Text
-            style={[
-              styles.noTransactionsText,
-              { color: theme.colors.secondary },
-            ]}
-          >
-            Nenhuma transação recente.
-          </Text>
-        )}
-      </View>
-
-      <Modal
-        visible={isModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: theme.colors.card },
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-              Detalhes da Transação
+              Bem-vindo(a),
             </Text>
-            {selectedTransaction && (
-              <>
-                <Text style={[styles.modalText, { color: theme.colors.text }]}>
-                  Descrição: {selectedTransaction.description}
-                </Text>
-                <Text
-                  style={[
-                    styles.modalText,
-                    {
-                      color:
-                        selectedTransaction.type === "income"
-                          ? theme.colors.primary
-                          : "#c0392b",
-                    },
-                  ]}
-                >
-                  Valor:{" "}
-                  {selectedTransaction.amount.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </Text>
-                <Text style={[styles.modalText, { color: theme.colors.text }]}>
-                  Tipo:{" "}
-                  {selectedTransaction.type === "income" ? "Entrada" : "Saída"}
-                </Text>
-                <Text style={[styles.modalText, { color: theme.colors.text }]}>
-                  Categoria: {selectedTransaction.category || "N/A"}
-                </Text>
-                <Text style={[styles.modalText, { color: theme.colors.text }]}>
-                  Data:{" "}
-                  {new Date(
-                    selectedTransaction.expense_date
-                  ).toLocaleDateString("pt-BR")}
-                </Text>
-              </>
-            )}
+            <Text style={[styles.headerName, { color: theme.colors.text }]}>
+              {profile?.name}!
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity onPress={toggleTheme} style={styles.iconButton}>
+              <Ionicons
+                name={theme.dark ? "sunny" : "moon"}
+                size={24}
+                color={theme.colors.text}
+              />
+            </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.closeButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={() => setIsModalVisible(false)}
+              onPress={() => router.push("/(protected)/Notifications/page")}
+              style={styles.iconButton}
             >
-              <Text style={styles.closeButtonText}>Fechar</Text>
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color={theme.colors.text}
+              />
+              {/* <NotificationBadge count={unreadNotifications} /> */}
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* Balance Card */}
+        <View style={styles.balanceContainer}>
+          <BlurView
+            intensity={30}
+            tint={theme.dark ? "dark" : "light"}
+            style={styles.balanceCard}
+          >
+            <Text
+              style={[styles.balanceTitle, { color: theme.colors.secondary }]}
+            >
+              {isParent ? "Meu Saldo" : "Saldo da Mesada"}
+            </Text>
+            <Text style={[styles.balanceAmount, { color: theme.colors.text }]}>
+              {mainBalance.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </Text>
+          </BlurView>
+        </View>
+
+        {/* Actions Grid */}
+        <View style={styles.actionsGrid}>
+          <ActionItem
+            icon="add"
+            label="Adicionar"
+            onPress={() => router.push("/(protected)/AddExpense/page")}
+            theme={theme}
+          />
+          <ActionItem
+            icon="star-outline"
+            label="Metas"
+            onPress={() => router.push("/(protected)/Goals/page")}
+            theme={theme}
+          />
+          <ActionItem
+            icon="medal-outline"
+            label="Prêmios"
+            onPress={() => router.push("/(protected)/Awards/page")}
+            theme={theme}
+          />
+          <ActionItem
+            icon="bar-chart-outline"
+            label="Orçamento"
+            onPress={() => router.push("/(protected)/Budget/page")}
+            theme={theme}
+          />
+        </View>
+
+        {profile?.role === "child" && <FinancialTipsCard />}
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Transações Recentes
+          </Text>
+          {Object.keys(groupedUserTransactions).length > 0 ? (
+            Object.entries(groupedUserTransactions).map(
+              ([date, transactions]) => (
+                <View key={date} style={{ marginBottom: SPACING }}>
+                  <Text
+                    style={[
+                      styles.transactionDate,
+                      { color: theme.colors.secondary },
+                    ]}
+                  >
+                    {date}
+                  </Text>
+                  {transactions.map((tx) => (
+                    <TransactionItem
+                      key={tx.id}
+                      tx={tx}
+                      onPress={() => handleTransactionPress(tx)}
+                      theme={theme}
+                    />
+                  ))}
+                </View>
+              )
+            )
+          ) : (
+            <Text
+              style={[styles.noItemsText, { color: theme.colors.secondary }]}
+            >
+              Nenhuma transação recente.
+            </Text>
+          )}
+        </View>
+      </ScrollView>
+
+      <TransactionDetailModal
+        isVisible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        transaction={selectedTransaction}
+        theme={theme}
+      />
+    </View>
   );
 }
 
+const ActionItem = ({ icon, label, onPress, theme }) => (
+  <TouchableOpacity
+    style={[styles.actionItem, { backgroundColor: theme.colors.card }]}
+    onPress={onPress}
+  >
+    <Ionicons name={icon} size={28} color={theme.colors.primary} />
+    <Text style={[styles.actionLabel, { color: theme.colors.text }]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+const TransactionItem = ({ tx, onPress, theme }) => (
+  <TouchableOpacity
+    style={[styles.transactionItem, { backgroundColor: theme.colors.card }]}
+    onPress={onPress}
+  >
+    <View
+      style={[
+        styles.transactionIconContainer,
+        {
+          backgroundColor:
+            tx.type === "income"
+              ? theme.colors.primary + "33"
+              : theme.colors.secondary + "33",
+        },
+      ]}
+    >
+      <Ionicons
+        name={getCategoryIcon(tx.category)}
+        size={22}
+        color={
+          tx.type === "income" ? theme.colors.primary : theme.colors.secondary
+        }
+      />
+    </View>
+    <View style={styles.transactionDetails}>
+      <Text
+        style={[styles.transactionDescription, { color: theme.colors.text }]}
+      >
+        {tx.description}
+      </Text>
+      <Text
+        style={[styles.transactionCategory, { color: theme.colors.secondary }]}
+      >
+        {tx.category}
+      </Text>
+    </View>
+    <Text
+      style={[
+        styles.transactionAmount,
+        {
+          color:
+            tx.type === "income" ? theme.colors.primary : theme.colors.danger,
+        },
+      ]}
+    >
+      {tx.type === "income" ? "+" : "-"}{" "}
+      {tx.amount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      })}
+    </Text>
+  </TouchableOpacity>
+);
+
+const TransactionDetailModal = ({ isVisible, onClose, transaction, theme }) => {
+  if (!transaction) return null;
+
+  return (
+    <Modal
+      visible={isVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <BlurView
+        intensity={20}
+        tint={theme.dark ? "dark" : "light"}
+        style={styles.modalBackdrop}
+      >
+        <View
+          style={[styles.bottomSheet, { backgroundColor: theme.colors.card }]}
+        >
+          <View style={styles.handle} />
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Ionicons
+              name="close-circle"
+              size={32}
+              color={theme.colors.secondary}
+            />
+          </TouchableOpacity>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text
+              style={[
+                styles.modalAmount,
+                {
+                  color:
+                    transaction.type === "income"
+                      ? theme.colors.primary
+                      : theme.colors.danger,
+                },
+              ]}
+            >
+              {transaction.type === "income" ? "+" : "-"}{" "}
+              {transaction.amount.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </Text>
+            <Text
+              style={[styles.modalDescription, { color: theme.colors.text }]}
+            >
+              {transaction.description}
+            </Text>
+            <Text style={[styles.modalDate, { color: theme.colors.secondary }]}>
+              {new Date(transaction.expense_date).toLocaleDateString("pt-BR", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+
+            {transaction.receipt_image_url && (
+              <View style={styles.modalSection}>
+                <Text
+                  style={[styles.modalSubTitle, { color: theme.colors.text }]}
+                >
+                  Comprovante
+                </Text>
+                <Image
+                  source={{ uri: transaction.receipt_image_url }}
+                  style={styles.modalImage}
+                />
+              </View>
+            )}
+
+            {transaction.location_coords && (
+              <View style={styles.modalSection}>
+                <Text
+                  style={[styles.modalSubTitle, { color: theme.colors.text }]}
+                >
+                  Localização
+                </Text>
+                <MapView
+                  style={styles.modalMap}
+                  initialRegion={{
+                    latitude: transaction.location_coords.latitude,
+                    longitude: transaction.location_coords.longitude,
+                    latitudeDelta: 0.005,
+                    longitudeDelta: 0.005,
+                  }}
+                  scrollEnabled={false}
+                >
+                  <Marker coordinate={transaction.location_coords} />
+                </MapView>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </BlurView>
+    </Modal>
+  );
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: width * 0.05 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: height * 0.06,
-    paddingBottom: height * 0.01,
+    padding: SPACING,
+    paddingTop: (StatusBar.currentHeight || 0) + SPACING,
   },
-  headerText: { fontSize: width * 0.045, fontWeight: "bold" },
-  balanceSection: {
-    alignItems: "center",
-    marginBottom: height * 0.03,
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  balanceTitle: { fontSize: width * 0.04 },
-  balanceAmount: {
-    fontSize: width * 0.12,
-    fontWeight: "bold",
-  },
-  actionsScrollViewContent: { paddingVertical: height * 0.01 },
-  actionCard: {
-    width: width * 0.28,
-    height: width * 0.28,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: width * 0.025,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    borderRadius: 10,
-  },
-  actionText: {
-    marginTop: height * 0.01,
-    fontSize: width * 0.03,
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  sectionTitle: {
-    fontSize: width * 0.05,
-    fontWeight: "bold",
-    marginBottom: height * 0.015,
-  },
-  transactionsSection: { marginTop: height * 0.025 },
-  medalsScrollViewContent: { paddingBottom: 10 },
-  medalCard: {
-    flexDirection: "row",
-    width: width * 0.5,
-    padding: 10,
-    borderRadius: 10,
-    marginRight: 15,
-    alignItems: "center",
-    elevation: 2,
-    shadowColor: "#000",
-  },
-  medalInfo: { marginLeft: 10, flex: 1 },
-  medalTitle: { fontSize: width * 0.035, fontWeight: "bold" },
-  medalChild: { fontSize: width * 0.03, fontStyle: "italic", marginTop: 2 },
-  balancesScrollViewContent: { paddingBottom: 10 },
+  headerGreeting: { fontSize: 16, opacity: 0.8 },
+  headerName: { fontSize: 24, fontWeight: "bold" },
+  iconButton: { padding: 8, marginLeft: 8 },
+  balanceContainer: { paddingHorizontal: SPACING },
   balanceCard: {
-    width: width * 0.45,
-    padding: 15,
-    borderRadius: 10,
-    marginRight: 15,
+    padding: SPACING,
+    borderRadius: 20,
+    overflow: "hidden",
+    alignItems: "center",
+  },
+  balanceTitle: { fontSize: 16, fontWeight: "500", opacity: 0.8 },
+  balanceAmount: { fontSize: 40, fontWeight: "bold", marginTop: 8 },
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    elevation: 3,
+    padding: SPACING,
   },
-  balanceCardName: {
-    color: "#fff",
-    fontSize: width * 0.04,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  balanceCardLabel: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: width * 0.03,
-  },
-  balanceCardAmount: {
-    color: "#fff",
-    fontSize: width * 0.05,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  balanceCardSaved: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: width * 0.035,
-    fontWeight: "500",
-    marginTop: 5,
-  },
-  noDependentsContainer: {
-    padding: 20,
+  actionItem: {
+    width: "48%",
+    padding: SPACING,
     borderRadius: 15,
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    marginBottom: SPACING / 2,
   },
-  addDependentButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
+  actionLabel: { marginTop: 8, fontWeight: "600" },
+  sectionContainer: { paddingHorizontal: SPACING, marginTop: SPACING },
+  sectionTitle: { fontSize: 20, fontWeight: "bold", marginBottom: SPACING },
+  noItemsText: {
+    textAlign: "center",
+    opacity: 0.7,
+    fontStyle: "italic",
+    paddingVertical: 20,
   },
-  addDependentButtonText: {
-    color: "#fff",
-    fontSize: width * 0.04,
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
-  transactionGroup: { marginBottom: height * 0.02 },
   transactionDate: {
-    fontSize: width * 0.04,
-    fontWeight: "bold",
+    fontSize: 14,
+    fontWeight: "600",
+    opacity: 0.7,
     marginBottom: 10,
   },
   transactionItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
+    padding: SPACING / 1.5,
     borderRadius: 15,
     marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
   transactionIconContainer: {
     width: 45,
     height: 45,
-    borderRadius: 22.5,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 15,
   },
   transactionDetails: { flex: 1 },
-  transactionDescription: { fontSize: width * 0.04, fontWeight: "bold" },
-  transactionCategory: { fontSize: width * 0.035, color: "#888", marginTop: 2 },
-  transactionAmount: { fontSize: width * 0.04, fontWeight: "bold" },
-  noTransactionsText: {
-    textAlign: "center",
-    marginTop: 20,
-    fontSize: width * 0.04,
-    fontStyle: "italic",
-  },
+  transactionDescription: { fontSize: 16, fontWeight: "600" },
+  transactionCategory: { fontSize: 14, opacity: 0.7, marginTop: 2 },
+  transactionAmount: { fontSize: 16, fontWeight: "bold" },
   modalBackdrop: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
   },
-  modalContent: {
-    width: width * 0.85,
-    padding: 20,
-    borderRadius: 10,
-    alignItems: "center",
+  bottomSheet: {
+    height: height * 0.75,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    padding: SPACING,
   },
-  modalTitle: { fontSize: width * 0.05, fontWeight: "bold", marginBottom: 20 },
-  modalText: {
-    fontSize: width * 0.04,
-    marginBottom: 10,
-    alignSelf: "flex-start",
+  handle: {
+    width: 50,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#ccc",
+    alignSelf: "center",
+    marginBottom: SPACING,
   },
   closeButton: {
-    marginTop: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 35,
-    borderRadius: 8,
-  },
-  closeButtonText: {
-    color: "#fff",
-    fontSize: width * 0.04,
-    fontWeight: "bold",
-  },
-  notificationBadge: {
     position: "absolute",
-    right: -6,
-    top: -3,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
+    top: SPACING,
+    right: SPACING,
+    zIndex: 1,
   },
-  notificationBadgeText: {
-    color: "#fff",
-    fontSize: 10,
+  modalAmount: {
+    fontSize: 32,
     fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 20,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  modalDate: {
+    fontSize: 14,
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: SPACING,
+  },
+  modalSection: {
+    marginVertical: SPACING / 2,
+  },
+  modalSubTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 15,
+    backgroundColor: "#e0e0e0",
+  },
+  modalMap: {
+    width: "100%",
+    height: 200,
+    borderRadius: 15,
   },
 });

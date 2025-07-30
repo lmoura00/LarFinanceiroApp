@@ -34,7 +34,7 @@ export default function FinancialTipsCard() {
         const { data, error: functionError } = await supabase.functions.invoke('generate-financial-tips', {
           body: { transactions },
         });
-
+        console.log("Response from generate-financial-tips:", data);
         if (functionError) throw functionError;
 
         if (data.tips && data.tips.length > 0) {
@@ -125,6 +125,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 15,
     paddingVertical: 20,
+    marginHorizontal: 20,
     marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

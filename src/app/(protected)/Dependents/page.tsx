@@ -377,7 +377,56 @@ export default function DependentsScreen() {
       Alert.alert("Erro", "Dados do dependente indisponíveis para gerar PDF.");
       return;
     }
-    const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Dados de Acesso - Lar Financeiro</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#333}.container{max-width:600px;margin:auto;border:1px solid #ddd;padding:30px;box-shadow:0 0 10px rgba(0,0,0,.1);border-radius:8px}.header{text-align:center;margin-bottom:30px}.logo{font-size:32px;font-weight:700;color:#007aff}h2{color:#007aff;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:20px}.detail-row{margin-bottom:15px;font-size:16px}.label{font-weight:700}.instructions{margin-top:30px;padding:15px;border:1px solid #ffc107;background-color:#fff3cd;border-radius:5px;color:#856404}</style></head><body><div class="container"><div class="header"><div class="logo">Lar Financeiro</div></div><h2>Dados de Acesso do Dependente</h2><div class="detail-row"><span class="label">Nome:</span> ${childName}</div><div class="detail-row"><span class="label">E-mail:</span> ${childEmail}</div><div class="detail-row"><span class="label">Senha Padrão:</span> 123456</div><div class="instructions"><p><b>Importante:</b> O dependente deve alterar esta senha no primeiro login para garantir a segurança da conta.</p></div></div></body></html>`;
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Dados de Acesso - Lar Financeiro App</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+          .header { text-align: center; margin-bottom: 20px; }
+          .logo { font-size: 30px; font-weight: bold; color: #007AFF; margin-bottom: 10px; }
+          .app-name { font-size: 20px; color: #555; }
+          .details { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+          .detail-row { margin-bottom: 10px; }
+          .label { font-weight: bold; }
+          .instructions { margin-top: 30px; padding: 15px; border: 1px solid #ffcc00; background-color: #fffacd; border-radius: 5px; color: #856404; }
+          .security-note { font-size: 14px; font-style: italic; color: #777; margin-top: 15px; text-align: center; }
+          .logo-img { width: 80px; height: 80px; margin-bottom: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <img src="https://i.ibb.co/mVS7hpKZ/splash-icon-dark.png" class="logo-img" alt="Lar Financeiro Logo" />
+            <div class="logo">Lar Financeiro</div>
+            <div class="app-name">Seu aplicativo de finanças familiares</div>
+          </div>
+          <div class="details">
+            <h2 style="text-align: center; color: #007AFF;">Dados de Acesso do Dependente</h2>
+            <div class="detail-row"><span class="label">Nome do Dependente:</span> ${childName}</div>
+            <div class="detail-row"><span class="label">E-mail de Acesso:</span> ${childEmail}</div>
+            <div class="detail-row"><span class="label">Senha de Acesso Padrão:</span> 123456</div>
+          </div>
+          <div class="instructions">
+            <h3>Instruções para o Primeiro Acesso:</h3>
+            <p>A conta de ${childName} foi criada com sucesso!</p>
+            <p>Para o primeiro acesso à aplicação, o dependente deverá seguir estes passos:</p>
+            <ol>
+              <li>Na tela de login do aplicativo, insira o e-mail: <strong>${childEmail}</strong>.</li>
+              <li>Em seguida, insira a senha: <strong>123456</strong>.</li>
+              <li>Clique no botão "Entrar".</li>
+              <li>Depois de entrar, o dependente deverá criar uma nova senha segura.</li>
+              <li>Após definir a nova senha, o dependente poderá fazer login normalmente com o e-mail e a senha recém-criada.</li>
+            </ol>
+          </div>
+          <p class="security-note">* Por motivos de segurança, você deverá alterar a senha de acesso exibida neste documento. O dependente deve criar a sua própria senha segura após o primeiro acesso.</p>
+        </div>
+      </body>
+      </html>
+    `;
     try {
       const { uri } = await Print.printToFileAsync({
         html: htmlContent,
